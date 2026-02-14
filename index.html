@@ -544,6 +544,8 @@
             <h1 style="font-size:1.5rem;">History</h1>
         </div>
 
+        <button class="btn btn-primary" onclick="openLogModal(null)">+ Add Past Workout</button>
+
         <div class="panel">
             <h3 class="panel-title">Training Analytics</h3>
             <div class="analytics-controls" id="analytics-controls">
@@ -594,23 +596,27 @@
         <button class="btn btn-danger" style="margin-top:auto;" onclick="clearHistory()">Clear All Logs</button>
     </div>
 
-    <div id="modal-edit"
+    <div id="modal-log"
         style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:2000; align-items:center; justify-content:center; padding:20px;">
         <div class="panel" style="width:100%; max-width:400px; background:#1a1a1a; border:1px solid #333;">
-            <h3 class="panel-title" style="font-size:1.1rem; color:#fff; margin-bottom:16px;">Edit Log</h3>
+            <h3 id="modal-log-title" class="panel-title" style="font-size:1.1rem; color:#fff; margin-bottom:16px;">Edit
+                Log</h3>
+
+            <label class="muted" style="display:block; margin-bottom:6px;">Date & Time</label>
+            <input id="log-date" type="datetime-local" style="margin-bottom:12px;">
 
             <label class="muted" style="display:block; margin-bottom:6px;">Distance (m)</label>
-            <input id="edit-dist" type="number" style="margin-bottom:12px;">
+            <input id="log-dist" type="number" style="margin-bottom:12px;">
 
-            <label class="muted" style="display:block; margin-bottom:6px;">Quick Time</label>
-            <input id="edit-time" type="text" style="margin-bottom:12px;">
+            <label class="muted" style="display:block; margin-bottom:6px;">Quick Time (optional)</label>
+            <input id="log-time" type="text" style="margin-bottom:12px;" placeholder="e.g. 1:30">
 
-            <label class="muted" style="display:block; margin-bottom:6px;">RPE</label>
-            <input id="edit-rpe" type="number" min="1" max="10" style="margin-bottom:20px;">
+            <label class="muted" style="display:block; margin-bottom:6px;">RPE (1-10)</label>
+            <input id="log-rpe" type="number" min="1" max="10" style="margin-bottom:20px;">
 
             <div class="row">
-                <button class="btn" style="background:#333;" onclick="closeEditModal()">Cancel</button>
-                <button class="btn btn-success" onclick="saveEdit()">Save</button>
+                <button class="btn" style="background:#333;" onclick="closeLogModal()">Cancel</button>
+                <button class="btn btn-success" onclick="saveLogEntry()">Save</button>
             </div>
         </div>
     </div>
@@ -1085,7 +1091,7 @@
                     <div class="log-stats" style="font-size:1.1rem; color:#fff;">${log.dist}m</div>
                 </div>
                 <div style="display:flex; gap:8px;">
-                     <button style="flex:1; padding:6px; font-size:0.8rem; background:#333; color:#ccc; border:none; border-radius:6px;" onclick="editLog(${index})">Edit</button>
+                     <button style="flex:1; padding:6px; font-size:0.8rem; background:#333; color:#ccc; border:none; border-radius:6px;" onclick="openLogModal(${index})">Edit</button>
                      <button style="flex:1; padding:6px; font-size:0.8rem; background:#4a1212; color:#ff8080; border:none; border-radius:6px;" onclick="deleteLog(${index})">Delete</button>
                 </div>
             `;
@@ -1108,48 +1114,107 @@
 
         let editingIndex = null;
 
-        function editLog(index) {
-            const history = JSON.parse(localStorage.getItem('swimLogs') || '[]');
-            const log = history[index];
-            if (!log) return;
-
+        function openLogModal(index) {
             editingIndex = index;
-            document.getElementById('edit-dist').value = log.dist;
-            document.getElementById('edit-time').value = log.quickTime === '-' ? '' : log.quickTime;
-            document.getElementById('edit-rpe').value = log.rpe;
+            const modal = document.getElementById('modal-log');
+            const title = document.getElementById('modal-log-title');
 
-            document.getElementById('modal-edit').style.display = 'flex';
+            if (index === null) {
+                // Add Mode
+                title.innerText = 'Add Past Workout';
+                document.getElementById('log-dist').value = '';
+                document.getElementById('log-time').value = '';
+                document.getElementById('log-rpe').value = 5;
+
+                const now = new Date();
+                now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+                document.getElementById('log-date').value = now.toISOString().slice(0, 16);
+            } else {
+                // Edit Mode
+                const history = JSON.parse(localStorage.getItem('swimLogs') || '[]');
+                const log = history[index];
+                if (!log) return;
+
+                title.innerText = 'Edit Log';
+                document.getElementById('log-dist').value = log.dist;
+                document.getElementById('log-time').value = log.quickTime === '-' ? '' : log.quickTime;
+                document.getElementById('log-rpe').value = log.rpe;
+
+                let ts = log.timestamp;
+                if (!ts && log.date) ts = Date.parse(log.date);
+                if (ts) {
+                    const d = new Date(ts);
+                    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+                    document.getElementById('log-date').value = d.toISOString().slice(0, 16);
+                }
+            }
+
+            modal.style.display = 'flex';
         }
 
-        function closeEditModal() {
-            document.getElementById('modal-edit').style.display = 'none';
+        function closeLogModal() {
+            document.getElementById('modal-log').style.display = 'none';
             editingIndex = null;
         }
 
-        function saveEdit() {
-            if (editingIndex === null) return;
+        function saveLogEntry() {
+            // Validate inputs
+            const distVal = parseInt(document.getElementById('log-dist').value, 10);
+            const timeVal = document.getElementById('log-time').value;
+            const rpeVal = parseInt(document.getElementById('log-rpe').value, 10);
+            const dateVal = document.getElementById('log-date').value;
 
-            const history = JSON.parse(localStorage.getItem('swimLogs') || '[]');
-            const log = history[editingIndex];
-            if (!log) return;
-
-            const newDist = parseInt(document.getElementById('edit-dist').value, 10);
-            const newTime = document.getElementById('edit-time').value;
-            const newRpe = parseInt(document.getElementById('edit-rpe').value, 10);
-
-            if (isNaN(newDist)) {
-                alert('Distance must be a number');
+            if (isNaN(distVal) || distVal <= 0) {
+                alert('Please enter a valid distance.');
                 return;
             }
 
-            log.dist = newDist;
-            log.quickTime = newTime || '-';
-            log.rpe = isNaN(newRpe) ? '-' : newRpe;
+            const dateObj = new Date(dateVal);
+            const timestamp = dateObj.getTime();
+            if (isNaN(timestamp)) {
+                alert('Please enter a valid date.');
+                return;
+            }
 
-            history[editingIndex] = log;
+            const dateStr = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString();
+
+            const history = JSON.parse(localStorage.getItem('swimLogs') || '[]');
+
+            if (editingIndex === null) {
+                // Add new
+                const newLog = {
+                    date: dateStr,
+                    timestamp: timestamp,
+                    dist: distVal,
+                    duration: 'Manual',
+                    quickTime: timeVal || '-',
+                    rpe: isNaN(rpeVal) ? '-' : rpeVal,
+                    completedMode: 'manual',
+                    failPoint: '-',
+                    laps: 0
+                };
+                history.push(newLog);
+            } else {
+                // Update existing
+                if (history[editingIndex]) {
+                    history[editingIndex].dist = distVal;
+                    history[editingIndex].quickTime = timeVal || '-';
+                    history[editingIndex].rpe = isNaN(rpeVal) ? '-' : rpeVal;
+                    history[editingIndex].date = dateStr;
+                    history[editingIndex].timestamp = timestamp;
+                }
+            }
+
+            // Sort descending by time
+            history.sort((a, b) => {
+                const tA = a.timestamp || Date.parse(a.date) || 0;
+                const tB = b.timestamp || Date.parse(b.date) || 0;
+                return tB - tA;
+            });
+
             localStorage.setItem('swimLogs', JSON.stringify(history));
 
-            closeEditModal();
+            closeLogModal();
             loadHistory();
             renderAnalytics();
         }
