@@ -302,9 +302,86 @@
 
         .voice-status { min-height: 1.2rem; font-size: 0.9rem; color: var(--text-muted); }
 
+        .analytics-controls {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 6px;
+            margin-bottom: 10px;
+        }
+
+        .analytics-chip {
+            border: 1px solid #3a3a3a;
+            background: #111;
+            color: #fff;
+            border-radius: 999px;
+            padding: 6px 0;
+            font-size: 0.78rem;
+            font-weight: 800;
+            cursor: pointer;
+        }
+
+        .analytics-chip.active {
+            background: var(--accent);
+            color: #001825;
+            border-color: var(--accent);
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+        }
+
+        .metric-card {
+            border: 1px solid #2f2f2f;
+            border-radius: 10px;
+            padding: 8px;
+            background: #0d0d0d;
+        }
+
+        .metric-label {
+            color: var(--text-muted);
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .metric-value {
+            margin-top: 4px;
+            font-size: 1.2rem;
+            font-weight: 900;
+        }
+
+        .bars {
+            margin-top: 10px;
+            display: grid;
+            grid-template-columns: repeat(7, minmax(0, 1fr));
+            align-items: end;
+            gap: 5px;
+            height: 88px;
+        }
+
+        .bar {
+            border-radius: 8px 8px 4px 4px;
+            background: linear-gradient(180deg, #41c3ff 0%, #135f91 100%);
+            min-height: 4px;
+        }
+
+        .bar-labels {
+            margin-top: 5px;
+            display: grid;
+            grid-template-columns: repeat(7, minmax(0, 1fr));
+            gap: 5px;
+            font-size: 0.65rem;
+            color: #7f838f;
+            text-transform: uppercase;
+            text-align: center;
+        }
+
         @media (max-width: 760px) {
             .quick-grid { grid-template-columns: repeat(3, 1fr); }
             #controls-grid { grid-template-columns: 1fr; }
+            .analytics-controls { grid-template-columns: repeat(3, minmax(0, 1fr)); }
         }
     </style>
 </head>
@@ -332,6 +409,51 @@
             </div>
             <button class="btn" style="margin-top:10px;" onclick="calculateCSS()">Calculate CSS Pace</button>
             <div id="css-result" class="muted"></div>
+        </div>
+
+        <div class="panel">
+            <h3 class="panel-title">Training Analytics</h3>
+            <div class="analytics-controls" id="analytics-controls">
+                <button class="analytics-chip active" data-days="7" onclick="setAnalyticsPeriod(7)">7D</button>
+                <button class="analytics-chip" data-days="14" onclick="setAnalyticsPeriod(14)">14D</button>
+                <button class="analytics-chip" data-days="30" onclick="setAnalyticsPeriod(30)">30D</button>
+                <button class="analytics-chip" data-days="90" onclick="setAnalyticsPeriod(90)">90D</button>
+                <button class="analytics-chip" data-days="all" onclick="setAnalyticsPeriod('all')">All</button>
+            </div>
+            <div id="analytics-empty" class="muted">No logs in this period yet.</div>
+            <div id="analytics-content" style="display:none;">
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-label">Sessions</div>
+                        <div class="metric-value" id="metric-sessions">0</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Volume</div>
+                        <div class="metric-value" id="metric-volume">0m</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Avg / Session</div>
+                        <div class="metric-value" id="metric-avg-dist">0m</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Avg RPE</div>
+                        <div class="metric-value" id="metric-avg-rpe">-</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Planned Completion</div>
+                        <div class="metric-value" id="metric-planned-rate">-</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Fail Points</div>
+                        <div class="metric-value" id="metric-fails">0</div>
+                    </div>
+                </div>
+                <div class="metric-card" style="margin-top:8px;">
+                    <div class="metric-label">Distance Trend (last 7 days)</div>
+                    <div class="bars" id="analytics-bars"></div>
+                    <div class="bar-labels" id="analytics-bar-labels"></div>
+                </div>
+            </div>
         </div>
 
         <div style="margin-top: 2px; text-transform: uppercase; color: #6b6b6b; font-size: 0.8rem; font-weight: 800; letter-spacing: 0.08em;">History</div>
@@ -441,11 +563,13 @@
         jumboMode: false,
         wetMode: false,
         spokenReadyArmed: false,
-        lapCount: 0
+        lapCount: 0,
+        analyticsPeriodDays: 7
     };
 
     window.onload = function() {
         loadHistory();
+        renderAnalytics();
         checkSavedWorkout();
         renderQuickLogGrid();
         setPhaseUI('interval');
@@ -703,6 +827,7 @@
 
         const log = {
             date: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString(),
+            timestamp: Date.now(),
             dist: completedDist,
             duration: durationMins + ' mins',
             quickTime: state.selectedQuickTime || '-',
@@ -746,6 +871,7 @@
         const history = JSON.parse(localStorage.getItem('swimLogs') || '[]');
         history.unshift(logEntry);
         localStorage.setItem('swimLogs', JSON.stringify(history));
+        renderAnalytics();
     }
 
     function loadHistory() {
@@ -783,7 +909,114 @@
         if (confirm('Delete all training logs?')) {
             localStorage.removeItem('swimLogs');
             loadHistory();
+            renderAnalytics();
         }
+    }
+
+    function setAnalyticsPeriod(days) {
+        state.analyticsPeriodDays = days;
+        document.querySelectorAll('.analytics-chip').forEach((chip) => {
+            const target = chip.getAttribute('data-days');
+            chip.classList.toggle('active', String(days) === target);
+        });
+        renderAnalytics();
+    }
+
+    function renderAnalytics() {
+        const allLogs = JSON.parse(localStorage.getItem('swimLogs') || '[]');
+        const filtered = filterLogsByPeriod(allLogs, state.analyticsPeriodDays);
+
+        const empty = document.getElementById('analytics-empty');
+        const content = document.getElementById('analytics-content');
+        if (!filtered.length) {
+            empty.style.display = 'block';
+            content.style.display = 'none';
+            return;
+        }
+
+        empty.style.display = 'none';
+        content.style.display = 'block';
+
+        let totalDist = 0;
+        let totalRpe = 0;
+        let rpeCount = 0;
+        let plannedCount = 0;
+        let failCount = 0;
+
+        filtered.forEach((log) => {
+            const dist = parseInt(log.dist, 10);
+            if (Number.isFinite(dist)) totalDist += dist;
+            const rpe = parseInt(log.rpe, 10);
+            if (Number.isFinite(rpe)) {
+                totalRpe += rpe;
+                rpeCount += 1;
+            }
+            if (log.completedMode === 'planned') plannedCount += 1;
+            if (log.failPoint && log.failPoint !== '-') failCount += 1;
+        });
+
+        const sessions = filtered.length;
+        const avgDist = Math.round(totalDist / sessions);
+        const avgRpe = rpeCount ? (totalRpe / rpeCount).toFixed(1) : '-';
+        const plannedRate = `${Math.round((plannedCount / sessions) * 100)}%`;
+
+        document.getElementById('metric-sessions').innerText = sessions;
+        document.getElementById('metric-volume').innerText = `${totalDist.toLocaleString()}m`;
+        document.getElementById('metric-avg-dist').innerText = `${avgDist.toLocaleString()}m`;
+        document.getElementById('metric-avg-rpe').innerText = avgRpe;
+        document.getElementById('metric-planned-rate').innerText = plannedRate;
+        document.getElementById('metric-fails').innerText = String(failCount);
+
+        renderDistanceBars(filtered);
+    }
+
+    function filterLogsByPeriod(logs, days) {
+        if (days === 'all') return logs;
+        const now = Date.now();
+        const cutoff = now - (Number(days) * 24 * 60 * 60 * 1000);
+        return logs.filter((log) => getLogTimestamp(log) >= cutoff);
+    }
+
+    function getLogTimestamp(log) {
+        if (Number.isFinite(log.timestamp)) return log.timestamp;
+        const parsed = Date.parse(log.date);
+        return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    function renderDistanceBars(logs) {
+        const buckets = [0, 0, 0, 0, 0, 0, 0];
+        const labels = ['-6', '-5', '-4', '-3', '-2', '-1', 'Now'];
+        const now = Date.now();
+        const dayMs = 24 * 60 * 60 * 1000;
+
+        logs.forEach((log) => {
+            const ts = getLogTimestamp(log);
+            if (!ts) return;
+            const ageDays = Math.floor((now - ts) / dayMs);
+            if (ageDays < 0 || ageDays > 6) return;
+            const idx = 6 - ageDays;
+            const dist = parseInt(log.dist, 10);
+            if (Number.isFinite(dist)) buckets[idx] += dist;
+        });
+
+        const maxVal = Math.max(...buckets, 1);
+        const barsEl = document.getElementById('analytics-bars');
+        const labelsEl = document.getElementById('analytics-bar-labels');
+        barsEl.innerHTML = '';
+        labelsEl.innerHTML = '';
+
+        buckets.forEach((value, i) => {
+            const bar = document.createElement('div');
+            bar.className = 'bar';
+            const pct = Math.max(4, Math.round((value / maxVal) * 100));
+            bar.style.height = `${pct}%`;
+            bar.title = `${labels[i]}: ${value}m`;
+            barsEl.appendChild(bar);
+
+            const label = document.createElement('div');
+            label.innerText = labels[i];
+            labelsEl.appendChild(label);
+        });
     }
 
     function formatTime(s) {
