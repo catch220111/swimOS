@@ -288,6 +288,22 @@
             grid-template-columns: 1fr 1fr;
         }
 
+        #wet-exit {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1300;
+            width: auto;
+            padding: 8px 10px;
+            border-radius: 999px;
+            border: 1px solid #4a4a4a;
+            background: rgba(0, 0, 0, 0.75);
+            color: #fff;
+            font-size: 0.78rem;
+            font-weight: 800;
+            cursor: pointer;
+        }
+
         .wet-zone {
             border: none;
             font-size: clamp(2rem, 8vw, 4rem);
@@ -536,6 +552,7 @@
     </div>
 
     <div id="wet-layer">
+        <button id="wet-exit" onclick="toggleWetMode(false)">Exit Wet</button>
         <button id="wet-pause" class="wet-zone" onclick="togglePause()">PAUSE</button>
         <button id="wet-lap" class="wet-zone" onclick="lapOrNext()">LAP / NEXT</button>
     </div>
@@ -699,6 +716,11 @@
         const step = state.workoutPlan[state.currentIndex];
         if (!step) return;
 
+        if (step.time <= 0) {
+            completeStep(false);
+            return;
+        }
+
         if (!state.spokenReadyArmed) {
             playWhistleStart();
             state.spokenReadyArmed = true;
@@ -715,6 +737,15 @@
         state.runningMode = mode;
         state.isPaused = false;
         setPhaseUI(mode);
+
+        if (seconds <= 0) {
+            updateTimerDisplay(0);
+            const zeroBtn = document.getElementById('action-btn');
+            zeroBtn.innerText = 'NEXT';
+            zeroBtn.className = 'btn btn-primary';
+            zeroBtn.onclick = lapOrNext;
+            return;
+        }
 
         const btn = document.getElementById('action-btn');
         btn.innerText = 'SKIP / NEXT';
@@ -771,7 +802,7 @@
             renderCard();
 
             const next = state.workoutPlan[state.currentIndex];
-            if (state.autoLoop && (fromAutoLoop || next.mode === 'rest')) {
+            if (state.autoLoop && next.time > 0 && (fromAutoLoop || next.mode === 'rest')) {
                 runTimer(next.time, next.mode);
             }
         } else {
