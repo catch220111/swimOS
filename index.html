@@ -600,7 +600,13 @@
             <h1 style="font-size:1.5rem;">History</h1>
         </div>
 
-        <button class="btn btn-primary" onclick="openLogModal(null)">+ Add Past Workout</button>
+        <div style="display:flex; gap:10px; margin-bottom:10px;">
+            <button class="btn btn-primary" onclick="openLogModal(null)">+ Add Past Workout</button>
+            <button class="btn" style="background:#2d2d2d;"
+                onclick="document.getElementById('history-csv-upload').click()">+ Import CSV</button>
+            <input type="file" id="history-csv-upload" class="file-input" accept=".csv"
+                onchange="handleHistoryImport(this)">
+        </div>
 
         <div class="panel">
             <h3 class="panel-title">Training Analytics</h3>
@@ -660,6 +666,14 @@
                         <div class="pie-hole"></div>
                     </div>
                     <div class="legend" id="legend-types"></div>
+                </div>
+            </div>
+
+            <!-- Smart Insights (ML) -->
+            <div class="panel" style="margin-top:16px; border:1px solid #2f2f2f; background:#0d0d0d;">
+                <h3 class="panel-title">🤖 Smart Insights</h3>
+                <div id="ml-insights-content" style="font-size:0.9rem; line-height:1.5;">
+                    <div class="muted">Gathering data for predictions...</div>
                 </div>
             </div>
         </div>
@@ -1206,6 +1220,42 @@
             });
         }
 
+        // -- CSV History Import --
+
+        function handleHistoryImport(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const text = e.target.result;
+                const workoutPlan = parseCSV(text);
+
+                if (workoutPlan.length === 0) {
+                    alert('Could not parse workout from CSV.');
+                    return;
+                }
+
+                // Calculate stats
+                let totalDist = 0;
+                workoutPlan.forEach(step => {
+                    totalDist += (step.dist || 0);
+                });
+
+                const breakdown = analyzeWorkout(workoutPlan, workoutPlan.length);
+
+                // Open modal with pre-filled data
+                openLogModal(null, {
+                    dist: totalDist,
+                    breakdown: breakdown
+                });
+
+                // Reset input
+                input.value = '';
+            };
+            reader.readAsText(file);
+        }
+
         // -- Log Management --
 
         function showLogsView() {
@@ -1220,18 +1270,24 @@
         }
 
         let editingIndex = null;
+        let pendingBreakdown = null;
 
-        function openLogModal(index) {
+        function openLogModal(index, preFill = null) {
             editingIndex = index;
+            pendingBreakdown = null;
             const modal = document.getElementById('modal-log');
             const title = document.getElementById('modal-log-title');
 
             if (index === null) {
                 // Add Mode
-                title.innerText = 'Add Past Workout';
-                document.getElementById('log-dist').value = '';
+                title.innerText = preFill ? 'Import Workout' : 'Add Past Workout';
+                document.getElementById('log-dist').value = preFill ? preFill.dist : '';
                 document.getElementById('log-time').value = '';
                 document.getElementById('log-rpe').value = 5;
+
+                if (preFill && preFill.breakdown) {
+                    pendingBreakdown = preFill.breakdown;
+                }
 
                 const now = new Date();
                 now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
@@ -1262,6 +1318,7 @@
         function closeLogModal() {
             document.getElementById('modal-log').style.display = 'none';
             editingIndex = null;
+            pendingBreakdown = null;
         }
 
         function saveLogEntry() {
@@ -1298,7 +1355,8 @@
                     rpe: isNaN(rpeVal) ? '-' : rpeVal,
                     completedMode: 'manual',
                     failPoint: '-',
-                    laps: 0
+                    laps: 0,
+                    breakdown: pendingBreakdown || analyzeWorkout([{ desc: 'Free', dist: distVal }], 1) // Default or Imported
                 };
                 history.push(newLog);
             } else {
@@ -1400,6 +1458,8 @@
                 { free: '#29a3ff', back: '#ce93d8', breast: '#fff59d', fly: '#ffab91', im: '#80cbc4', mix: '#757575' });
             renderPieChart('chart-types', 'legend-types', aggTypes, totalDist,
                 { swim: '#29a3ff', kick: '#f48fb1', pull: '#a5d6a7', drill: '#ffcc80' });
+
+            renderSmartInsights(filtered, allLogs);
         }
 
         function analyzeWorkout(plan, upToStepIndex) {
@@ -1468,6 +1528,125 @@
             });
 
             chartEl.style.background = `conic-gradient(${segments.join(', ')})`;
+        }
+
+        // --- ML / Smart Insights ---
+
+        class LinearRegression {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.n = x.length;
+                this.calculate();
+            }
+
+            calculate() {
+                let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+                for (let i = 0; i < this.n; i++) {
+                    sumX += this.x[i];
+                    sumY += this.y[i];
+                    sumXY += this.x[i] * this.y[i];
+                    sumXX += this.x[i] * this.x[i];
+                }
+                this.slope = (this.n * sumXY - sumX * sumY) / (this.n * sumXX - sumX * sumX);
+                this.intercept = (sumY - this.slope * sumX) / this.n;
+            }
+
+            predict(x) {
+                return this.slope * x + this.intercept;
+            }
+        }
+
+        function renderSmartInsights(logs) {
+            const container = document.getElementById('ml-insights-content');
+            if (!container) return;
+
+            if (logs.length < 3) {
+                container.innerHTML = '<div class="muted">Need at least 3 logs to generate insights.</div>';
+                return;
+            }
+
+            const insights = [];
+            const now = Date.now();
+            const dayMs = 24 * 60 * 60 * 1000;
+
+            // 1. Performance Forecast (Volume)
+            // Get volume per week for last 4 weeks
+            const weeks = {};
+            logs.forEach(log => {
+                const ts = getLogTimestamp(log);
+                const ageDays = (now - ts) / dayMs;
+                if (ageDays <= 28) {
+                    const w = Math.floor(ageDays / 7);
+                    weeks[w] = (weeks[w] || 0) + parseInt(log.dist, 10);
+                }
+            });
+
+            // X: Week index (3=oldest, 0=current), Y: Volume
+            const xData = [], yData = [];
+            for (let i = 3; i >= 0; i--) {
+                if (weeks[i] !== undefined) {
+                    xData.push(3 - i); // normalize to 0..3 ascending
+                    yData.push(weeks[i]);
+                }
+            }
+
+            if (xData.length >= 2) {
+                try {
+                    const lr = new LinearRegression(xData, yData);
+                    const nextWeekPred = Math.max(0, Math.round(lr.predict(4))); // Forecast next week (index 4)
+
+                    // Only show if we have a valid slope
+                    if (!isNaN(lr.slope)) {
+                        const trend = lr.slope > 0 ? 'increasing' : 'decreasing';
+                        const icon = lr.slope > 0 ? '📈' : '📉';
+
+                        insights.push(`
+                        <div style="margin-bottom:8px;">
+                            <strong>${icon} Forecast:</strong> Volume is ${trend}. 
+                            Predicted for next week: <span style="color:var(--accent);">${nextWeekPred}m</span>.
+                        </div>
+                    `);
+                    }
+                } catch (e) { console.error('ML Error', e); }
+            }
+
+            // 2. Cycle Adjuster (Fail Points)
+            let failCount = 0;
+            let totalSessions = 0;
+
+            // Check last 10 logs
+            const recentLogs = logs.slice(0, 10);
+            recentLogs.forEach(log => {
+                totalSessions++;
+                if (log.failPoint && log.failPoint !== '-') {
+                    failCount++;
+                }
+            });
+
+            const failRate = totalSessions ? (failCount / totalSessions) : 0;
+
+            if (failRate > 0.3) {
+                insights.push(`
+                <div style="margin-bottom:8px; color:#ffab91;">
+                    <strong>⚠️ High Intensity:</strong> You've missed intervals in ${Math.round(failRate * 100)}% of recent sessions. 
+                    Consider adding +5s to your base cycle.
+                </div>
+            `);
+            } else if (failRate === 0 && totalSessions >= 5) {
+                insights.push(`
+                <div style="margin-bottom:8px; color:#a5d6a7;">
+                    <strong>🚀 Crushing It:</strong> Zero fails in recent sessions. 
+                    Try tightening your cycle by -5s for a challenge!
+                </div>
+            `);
+            }
+
+            if (insights.length === 0) {
+                container.innerHTML = '<div class="muted">No significant trends detected yet. Keep training!</div>';
+            } else {
+                container.innerHTML = insights.join('');
+            }
         }
 
         function filterLogsByPeriod(logs, days) {
