@@ -1252,42 +1252,172 @@
     }
 
     function handleVoiceCommand(text) {
-        document.getElementById('voice-status').innerText = `Heard: ${text}`;
+        document.getElementById('voice-status').innerText = `Heard: "${text}"`;
+        let matched = false;
 
-        if (text.includes('next set') || text.includes('next')) {
+        // 1. Start / Go
+        if (text.match(/\b(start|go|begin)\b/)) {
+            const btn = document.getElementById('action-btn');
+            if (btn && !btn.disabled) {
+                btn.click();
+                matched = true;
+            }
+        }
+
+        // 2. Stop / Pause
+        else if (text.match(/\b(stop|pause|wait|hold)\b/)) {
+            if (!state.isPaused && state.timerInterval) {
+                togglePause();
+                matched = true;
+            }
+        }
+
+        // 3. Resume
+        else if (text.match(/\b(resume|continue|carry on)\b/)) {
+            if (state.isPaused) {
+                togglePause();
+                matched = true;
+            }
+        }
+
+        // 4. Next / Lap
+        else if (text.match(/\b(next|lap|skip|done)\b/)) {
             lapOrNext();
-            return;
+            matched = true;
         }
 
-        if (text.includes('pause')) {
-            if (!state.isPaused) togglePause();
-            return;
+        // 5. Restart Interval
+        // Resets the current interval timer to its full duration
+        else if (text.match(/\b(restart|reset|again)\b/)) {
+             if (state.timerInterval) {
+                 const step = state.workoutPlan[state.currentIndex];
+                 if (step) {
+                     runTimer(step.time, step.mode); // Re-run
+                     matched = true;
+                 }
+             }
         }
 
-        if (text.includes('resume')) {
-            if (state.isPaused) togglePause();
-            return;
-        }
-
-        if (text.includes('log')) {
-            const match = text.match(/(\d+[: ]\d+)/);
-            if (match) {
-                const cleaned = match[1].replace(' ', ':');
-                state.selectedQuickTime = cleaned;
-                document.getElementById('voice-status').innerText = `Logged time ${cleaned}`;
-            }
-            return;
-        }
-
-        if (text.includes('rpe')) {
-            const match = text.match(/rpe\s*(\d+)/);
-            if (match) {
-                const value = Math.min(10, Math.max(1, parseInt(match[1], 10)));
-                document.getElementById('rpe-slider').value = value;
-                setRPE(value);
-                document.getElementById('voice-status').innerText = `RPE set to ${value}`;
+        // 6. Log Time (Smart Parse)
+        else if (text.match(/\b(log|time|record|save)\b/)) {
+            const timeStr = parseSpokenTime(text);
+            if (timeStr) {
+                state.selectedQuickTime = timeStr;
+                highlightQuickLog(timeStr);
+                document.getElementById('voice-status').innerText = `Logged: ${timeStr}`;
+                matched = true;
+            } else {
+                document.getElementById('voice-status').innerText = `Log what? Try "Log 1:10"`;
             }
         }
+
+        // 7. RPE
+        else if (text.match(/\b(rpe|effort|scale)\b/)) {
+            const rpeMatch = text.match(/\b(10|[1-9])\b/);
+            if (rpeMatch) {
+                const val = parseInt(rpeMatch[1], 10);
+                document.getElementById('rpe-slider').value = val;
+                setRPE(val);
+                matched = true;
+            }
+        }
+
+        if (matched) {
+            triggerVoiceFeedback(true);
+        }
+    }
+
+    // Attempt to parse various spoken time formats into "M:SS"
+    function parseSpokenTime(text) {
+        // "one oh five" -> 1:05
+        // "one fifteen" -> 1:15
+        // "minute thirty" -> 1:30
+        // "sixty five" -> 1:05
+        // "1:05"
+
+        // Map word numbers to digits for simple cases
+        const words = {
+            'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
+            'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
+            'oh': 0, 'zero': 0, 'eleven': 11, 'twelve': 12, 'thirteen': 13,
+            'twenty': 20, 'thirty': 30, 'forty': 40, 'fifty': 50
+        };
+
+        // Try to replace common number words
+        let processed = text.replace(/-/g, ' '); 
+        Object.keys(words).forEach(w => {
+             const reg = new RegExp(`\\b${w}\\b`, 'gi');
+             processed = processed.replace(reg, words[w]);
+        });
+        
+        // Remove non-digit chars that might interfere (except colon)
+        // But keep spaces to separate generic words from numbers
+        
+        // 1. Extract sequence of digits/colons
+        // Case A: "1 0 5" or "1 5"
+        const numbers = processed.match(/\d+/g);
+        if (!numbers) return null;
+
+        // If explicitly like "1:05"
+        if (processed.match(/\d+:\d+/)) {
+            const m = processed.match(/(\d+):(\d+)/);
+            return `${parseInt(m[1])}:${parseInt(m[2]) < 10 ? '0' + parseInt(m[2]) : parseInt(m[2])}`;
+        }
+
+        // If we have sequence like [1, 5], treat as 1:05?
+        // [1, 15] -> 1:15
+        // [1, 30] -> 1:30
+        // [1, 0, 5] -> 1:05
+        
+        if (numbers.length >= 2) {
+             const m = parseInt(numbers[0]);
+             const s = parseInt(numbers[1]);
+             // basic valid check
+             if (m < 60 && s < 60) {
+                 return `${m}:${s < 10 ? '0'+s : s}`;
+             }
+        }
+        
+        // If single large number e.g. "65" -> 1:05
+        if (numbers.length === 1) {
+            const val = parseInt(numbers[0]);
+            if (val > 59 && val < 600) { // e.g. 65 to 9m59s
+                 const m = Math.floor(val / 60);
+                 const s = val % 60;
+                 return `${m}:${s < 10 ? '0'+s : s}`;
+            }
+        }
+
+        return null;
+    }
+
+    function triggerVoiceFeedback(success) {
+        const bar = document.getElementById('voice-status');
+        const originalColor = bar.style.color;
+        
+        bar.style.color = success ? 'var(--success)' : 'var(--danger)';
+        bar.style.fontWeight = '900';
+        
+        if (success) {
+            beep(880, 0.1, 'sine', 0.2);
+            setTimeout(() => beep(1100, 0.15, 'sine', 0.2), 120);
+        }
+
+        setTimeout(() => {
+            bar.style.color = '';
+            bar.style.fontWeight = '';
+        }, 1500);
+    }
+
+    function highlightQuickLog(timeStr) {
+        const grid = document.getElementById('quick-log-grid');
+        [...grid.children].forEach(btn => {
+            if (btn.innerText === timeStr) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
     }
 </script>
 </body>
