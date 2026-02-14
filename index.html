@@ -1,17 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SwimOS v1</title>
+    <title>SwimOS v1.1</title>
+    
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#000000">
     <link rel="apple-touch-icon" href="assets/png/icon-192.png">
-
     <link rel="icon" type="image/svg+xml" href="assets/svg/icon.svg">
-
-    <link rel="manifest" href="manifest.json">
 
     <script>
         if ('serviceWorker' in navigator) {
@@ -20,20 +17,17 @@
                 .catch((err) => console.log('SW Failed', err));
         }
     </script>
+
     <style>
         :root {
             --bg-color: #000000;
             --card-bg: #1c1c1e;
             --text-main: #ffffff;
             --text-muted: #8e8e93;
-            --accent: #0A84FF;
-            /* iOS Blue */
-            --success: #30D158;
-            /* iOS Green */
-            --danger: #FF453A;
-            /* iOS Red */
-            --warning: #FF9F0A;
-            /* iOS Orange */
+            --accent: #0A84FF; /* iOS Blue */
+            --success: #30D158; /* iOS Green */
+            --danger: #FF453A; /* iOS Red */
+            --warning: #FF9F0A; /* iOS Orange */
         }
 
         body {
@@ -59,23 +53,11 @@
             overflow-y: auto;
         }
 
-        .active-view {
-            display: flex;
-        }
+        .active-view { display: flex; }
 
         /* --- COMPONENTS --- */
-        h1 {
-            margin-bottom: 5px;
-            font-size: 1.8rem;
-        }
-
-        h2 {
-            color: var(--text-muted);
-            font-size: 1rem;
-            font-weight: normal;
-            margin-top: 0;
-            margin-bottom: 20px;
-        }
+        h1 { margin-bottom: 5px; font-size: 1.8rem; }
+        h2 { color: var(--text-muted); font-size: 1rem; font-weight: normal; margin-top: 0; margin-bottom: 20px;}
 
         .btn {
             background: var(--card-bg);
@@ -90,23 +72,11 @@
             cursor: pointer;
             text-align: center;
         }
-
-        .btn-primary {
-            background: var(--accent);
-            color: white;
-            border: none;
-        }
-
-        .btn-danger {
-            background: var(--danger);
-            color: white;
-            border: none;
-        }
-
-        .file-input {
-            display: none;
-        }
-
+        .btn-primary { background: var(--accent); color: white; border: none; }
+        .btn-success { background: var(--success); color: black; border: none; }
+        
+        .file-input { display: none; }
+        
         /* --- HISTORY LIST --- */
         .log-item {
             background: var(--card-bg);
@@ -117,16 +87,8 @@
             justify-content: space-between;
             align-items: center;
         }
-
-        .log-date {
-            font-weight: bold;
-            display: block;
-        }
-
-        .log-stats {
-            font-size: 0.9rem;
-            color: var(--text-muted);
-        }
+        .log-date { font-weight: bold; display: block; }
+        .log-stats { font-size: 0.9rem; color: var(--text-muted); }
 
         /* --- WORKOUT CARD --- */
         #active-card {
@@ -141,386 +103,367 @@
             margin-bottom: 20px;
             padding: 20px;
         }
-
-        .timer-display {
-            font-size: 6rem;
-            font-weight: 800;
-            font-variant-numeric: tabular-nums;
-            line-height: 1;
-        }
-
-        .dist-display {
-            font-size: 3rem;
-            font-weight: bold;
-            color: var(--accent);
-            margin: 10px 0;
-        }
-
-        .desc-text {
-            font-size: 1.2rem;
-            color: #ddd;
-            margin-top: 20px;
-            line-height: 1.4;
-        }
-
-        .next-up {
-            color: var(--text-muted);
-            margin-top: 30px;
-            font-size: 0.9rem;
-            text-transform: uppercase;
-        }
-
+        
+        .timer-display { font-size: 6rem; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1;}
+        .dist-display { font-size: 3rem; font-weight: bold; color: var(--accent); margin: 10px 0; }
+        .desc-text { font-size: 1.2rem; color: #ddd; margin-top: 20px; line-height: 1.4; }
+        .next-up { color: var(--text-muted); margin-top: 30px; font-size: 0.9rem; text-transform: uppercase;}
+        
         /* --- OVERLAY --- */
         #flash-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: var(--success);
             display: none;
-            justify-content: center;
-            align-items: center;
+            justify-content: center; align-items: center;
             z-index: 1000;
         }
+        .flash-text { font-size: 8rem; color: black; font-weight: 900; }
 
-        .flash-text {
-            font-size: 8rem;
-            color: black;
-            font-weight: 900;
-        }
     </style>
 </head>
-
 <body>
 
     <div id="view-home" class="view active-view">
         <h1>SwimOS</h1>
         <h2>Training Log & Launcher</h2>
+        
+        <button id="btn-resume" class="btn btn-success" style="display:none;" onclick="resumeWorkout()">
+            &#9658; Resume Last Workout
+        </button>
 
-        <button class="btn btn-primary" onclick="document.getElementById('csv-upload').click()">+ Load Workout
-            (CSV)</button>
+        <button class="btn btn-primary" onclick="document.getElementById('csv-upload').click()">+ Load New CSV</button>
         <input type="file" id="csv-upload" class="file-input" accept=".csv" onchange="handleFileUpload(this)">
-
-        <div
-            style="margin-top: 20px; margin-bottom: 10px; text-transform: uppercase; color: #555; font-size: 0.8rem; font-weight: bold;">
-            Recent History</div>
+        
+        <div style="margin-top: 20px; margin-bottom: 10px; text-transform: uppercase; color: #555; font-size: 0.8rem; font-weight: bold;">History</div>
         <div id="history-list">
-            <div style="text-align:center; color:#555; margin-top:20px;">No logs yet. Go swim!</div>
-        </div>
-
-        <button class="btn" style="margin-top: auto;" onclick="clearHistory()">Clear History</button>
+            </div>
+        
+        <button class="btn" style="margin-top: auto;" onclick="clearHistory()">Clear Logs</button>
     </div>
 
     <div id="view-workout" class="view">
         <div style="display:flex; justify-content:space-between; align-items:center;">
             <div id="progress-text" style="color:#777;">0 / 0m</div>
-            <button style="background:none; border:none; color:red; font-weight:bold;"
-                onclick="quitWorkout()">QUIT</button>
+            <button style="background:none; border:none; color:red; font-weight:bold;" onclick="quitWorkout()">QUIT</button>
         </div>
 
         <div id="active-card">
-            <div style="color:var(--text-muted); text-transform:uppercase; font-size:0.9rem; font-weight:bold; letter-spacing:1px;"
-                id="card-section">SECTION</div>
-            <div class="dist-display" id="card-dist">200m</div>
-            <div style="font-size:1.5rem; font-weight:bold; margin-bottom:10px;" id="card-title">Swim</div>
-
+            <div style="color:var(--text-muted); text-transform:uppercase; font-size:0.9rem; font-weight:bold; letter-spacing:1px;" id="card-section">SECTION</div>
+            <div class="dist-display" id="card-dist">0m</div>
+            <div style="font-size:1.5rem; font-weight:bold; margin-bottom:10px;" id="card-title">Ready?</div>
+            
             <div class="timer-display" id="main-timer">00:00</div>
-
-            <div class="desc-text" id="card-desc">Description goes here</div>
-            <div class="next-up" id="card-next">Next: ...</div>
+            
+            <div class="desc-text" id="card-desc"></div>
+            <div class="next-up" id="card-next"></div>
         </div>
 
         <button class="btn btn-primary" id="action-btn" onclick="handleAction()">START</button>
     </div>
 
-    <div id="flash-overlay">
-        <div class="flash-text">GO!</div>
-    </div>
+    <div id="flash-overlay"><div class="flash-text">GO!</div></div>
 
-    <script>
-        // --- STATE ---
-        let workoutPlan = [];
-        let currentIndex = 0;
-        let timerInterval = null;
-        let totalDist = 0;
-        let currentDist = 0;
-        let startTime = null;
-        let isPaused = false;
-        let audioCtx = null;
+<script>
+    // --- STATE ---
+    let workoutPlan = [];
+    let currentIndex = 0;
+    let timerInterval = null;
+    let totalDist = 0;
+    let currentDist = 0;
+    let startTime = null;
+    let audioCtx = null;
 
-        // --- INITIALIZATION ---
+    // --- INITIALIZATION ---
+    window.onload = function() {
         loadHistory();
+        checkSavedWorkout();
+    };
 
-        // --- CSV PARSER ---
-        function handleFileUpload(input) {
-            const file = input.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = function (e) {
-                const text = e.target.result;
-                parseCSV(text);
-            };
-            reader.readAsText(file);
+    function checkSavedWorkout() {
+        const saved = localStorage.getItem('currentWorkoutPlan');
+        if (saved) {
+            document.getElementById('btn-resume').style.display = 'block';
         }
+    }
 
-        function parseCSV(csvText) {
-            workoutPlan = [];
-            totalDist = 0;
+    // --- CSV PARSER ---
+    function handleFileUpload(input) {
+        const file = input.files[0];
+        if (!file) return;
 
-            const lines = csvText.split('\n');
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            parseCSV(e.target.result);
+        };
+        reader.readAsText(file);
+    }
 
-            // Skip header (row 0), start at 1
-            for (let i = 1; i < lines.length; i++) {
-                const line = lines[i].trim();
-                if (!line) continue;
+    function parseCSV(csvText) {
+        let newPlan = [];
+        let newTotal = 0;
+        
+        const lines = csvText.split('\n');
+        
+        // Skip header (row 0), start at 1
+        for (let i = 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
+            
+            // CSV: Section, Reps, Dist, Mode, Seconds, Desc
+            const cols = line.split(',');
+            if (cols.length < 5) continue;
 
-                // CSV Format: Section, Reps, Dist, Mode, Seconds, Desc
-                const cols = line.split(',');
-                if (cols.length < 5) continue;
+            const reps = parseInt(cols[1]);
+            const dist = parseInt(cols[2]);
+            const mode = cols[3].trim().toLowerCase(); 
+            const time = parseInt(cols[4]);
+            const desc = cols.slice(5).join(','); 
 
-                const reps = parseInt(cols[1]);
-                const dist = parseInt(cols[2]);
-                const mode = cols[3].trim().toLowerCase(); // 'interval' or 'rest'
-                const time = parseInt(cols[4]);
-                const desc = cols.slice(5).join(','); // Join back in case desc has commas
-
-                // Expand Reps into individual cards
-                for (let r = 1; r <= reps; r++) {
-                    workoutPlan.push({
-                        section: cols[0],
-                        dist: dist,
-                        mode: mode,
-                        time: time,
-                        desc: desc,
-                        rep: r,
-                        totalReps: reps
-                    });
-                    totalDist += dist;
-                }
-            }
-
-            if (workoutPlan.length > 0) {
-                startWorkoutMode();
-            } else {
-                alert("Error: Could not parse CSV. Check format.");
-            }
-        }
-
-        // --- WORKOUT ENGINE ---
-        function startWorkoutMode() {
-            document.getElementById('view-home').classList.remove('active-view');
-            document.getElementById('view-workout').classList.add('active-view');
-
-            currentIndex = 0;
-            currentDist = 0;
-            startTime = new Date();
-            initAudio();
-
-            renderCard();
-        }
-
-        function renderCard() {
-            const step = workoutPlan[currentIndex];
-
-            // Update UI
-            document.getElementById('progress-text').innerText = `${currentDist} / ${totalDist}m`;
-            document.getElementById('card-section').innerText = step.section;
-            document.getElementById('card-dist').innerText = `${step.dist}m`;
-
-            let title = `${step.desc}`;
-            if (step.totalReps > 1) {
-                title = `Rep ${step.rep}/${step.totalReps}: ${step.desc}`;
-            }
-            document.getElementById('card-title').innerText = title;
-            document.getElementById('card-desc').innerText = step.mode === 'interval' ? `Leave on ${formatTime(step.time)}` : `Rest: ${step.time}s`;
-
-            // Preview Next
-            if (workoutPlan[currentIndex + 1]) {
-                document.getElementById('card-next').innerText = "NEXT: " + workoutPlan[currentIndex + 1].desc;
-            } else {
-                document.getElementById('card-next').innerText = "NEXT: FINISH";
-            }
-
-            // Timer Setup
-            document.getElementById('main-timer').innerText = formatTime(step.time);
-
-            // Button Logic
-            const btn = document.getElementById('action-btn');
-            if (step.mode === 'interval') {
-                btn.innerText = "START INTERVAL";
-                btn.style.backgroundColor = getComputedStyle(document.documentElement).getPropertyValue('--success');
-            } else {
-                btn.innerText = "START REST";
-                btn.style.backgroundColor = getComputedStyle(document.documentElement).getPropertyValue('--warning');
+            for (let r = 1; r <= reps; r++) {
+                newPlan.push({
+                    section: cols[0],
+                    dist: dist,
+                    mode: mode,
+                    time: time,
+                    desc: desc,
+                    rep: r,
+                    totalReps: reps
+                });
+                newTotal += dist;
             }
         }
+        
+        if (newPlan.length > 0) {
+            // Save to LocalStorage
+            workoutPlan = newPlan;
+            totalDist = newTotal;
+            localStorage.setItem('currentWorkoutPlan', JSON.stringify(workoutPlan));
+            
+            startWorkoutMode();
+        } else {
+            alert("Error: Invalid CSV format.");
+        }
+    }
 
-        function handleAction() {
-            const step = workoutPlan[currentIndex];
+    function resumeWorkout() {
+        const saved = localStorage.getItem('currentWorkoutPlan');
+        if (saved) {
+            workoutPlan = JSON.parse(saved);
+            // Recalculate total
+            totalDist = workoutPlan.reduce((acc, curr) => acc + curr.dist, 0);
+            startWorkoutMode();
+        }
+    }
 
-            // If it's 0 seconds (Manual advance), just go next
-            if (step.time === 0) {
-                completeStep();
-                return;
-            }
+    // --- WORKOUT ENGINE ---
+    function startWorkoutMode() {
+        document.getElementById('view-home').classList.remove('active-view');
+        document.getElementById('view-workout').classList.add('active-view');
+        
+        currentIndex = 0;
+        currentDist = 0;
+        startTime = new Date();
+        initAudio();
+        
+        renderCard();
+    }
 
-            runTimer(step.time, step.mode);
+    function renderCard() {
+        const step = workoutPlan[currentIndex];
+        
+        // Update UI
+        document.getElementById('progress-text').innerText = `${currentDist} / ${totalDist}m`;
+        document.getElementById('card-section').innerText = step.section;
+        document.getElementById('card-dist').innerText = `${step.dist}m`;
+        
+        let title = `${step.desc}`;
+        if (step.totalReps > 1) {
+            title = `Rep ${step.rep}/${step.totalReps}: ${step.desc}`; 
+        }
+        document.getElementById('card-title').innerText = title;
+        document.getElementById('card-desc').innerText = step.mode === 'interval' ? `Leave on ${formatTime(step.time)}` : `Rest: ${step.time}s`;
+
+        // Preview Next
+        if (workoutPlan[currentIndex + 1]) {
+            document.getElementById('card-next').innerText = "NEXT: " + workoutPlan[currentIndex + 1].desc;
+        } else {
+            document.getElementById('card-next').innerText = "NEXT: FINISH";
         }
 
-        function runTimer(seconds, mode) {
-            let timeLeft = seconds;
-            const display = document.getElementById('main-timer');
-            const btn = document.getElementById('action-btn');
+        // Timer Setup
+        document.getElementById('main-timer').innerText = formatTime(step.time);
+        
+        // Button Logic
+        const btn = document.getElementById('action-btn');
+        btn.onclick = handleAction; // Reset click handler
+        
+        if (step.mode === 'interval') {
+            btn.innerText = "START INTERVAL";
+            btn.style.backgroundColor = getComputedStyle(document.documentElement).getPropertyValue('--success');
+        } else {
+            btn.innerText = "START REST";
+            btn.style.backgroundColor = getComputedStyle(document.documentElement).getPropertyValue('--warning');
+        }
+    }
 
-            // Disable button during timer to act as "Skip/Stop"
-            btn.innerText = "SKIP";
-            btn.style.backgroundColor = "#333";
-            btn.onclick = () => {
+    function handleAction() {
+        const step = workoutPlan[currentIndex];
+        
+        if (step.time === 0) {
+            completeStep();
+            return;
+        }
+
+        runTimer(step.time);
+    }
+
+    function runTimer(seconds) {
+        let timeLeft = seconds;
+        const display = document.getElementById('main-timer');
+        const btn = document.getElementById('action-btn');
+        
+        // Change button to "Skip"
+        btn.innerText = "SKIP / NEXT";
+        btn.style.backgroundColor = "#333";
+        btn.onclick = () => {
+            clearInterval(timerInterval);
+            completeStep();
+        };
+
+        if (timerInterval) clearInterval(timerInterval);
+        
+        timerInterval = setInterval(() => {
+            timeLeft--;
+            display.innerText = formatTime(timeLeft);
+            
+            // Audio Cues
+            if (timeLeft <= 3 && timeLeft > 0) beep(600, 0.1);
+
+            if (timeLeft <= 0) {
                 clearInterval(timerInterval);
-                completeStep();
-            };
-
-            if (timerInterval) clearInterval(timerInterval);
-
-            timerInterval = setInterval(() => {
-                timeLeft--;
-                display.innerText = formatTime(timeLeft);
-
-                // Audio Cues
-                if (timeLeft <= 3 && timeLeft > 0) beep(600, 0.1);
-
-                if (timeLeft <= 0) {
-                    clearInterval(timerInterval);
-                    triggerGoSignal();
-                    setTimeout(() => {
-                        completeStep();
-                    }, 2000);
-                }
-            }, 1000);
-        }
-
-        function completeStep() {
-            // Reset Button
-            const btn = document.getElementById('action-btn');
-            btn.onclick = handleAction;
-
-            // Add Distance
-            currentDist += workoutPlan[currentIndex].dist;
-
-            // Move Index
-            currentIndex++;
-
-            if (currentIndex < workoutPlan.length) {
-                // Auto-Chain Interval Logic: 
-                // If we just finished an Interval, and the next one is ALSO an Interval, auto-start.
-                const prevStep = workoutPlan[currentIndex - 1];
-                const nextStep = workoutPlan[currentIndex];
-
-                renderCard();
-
-                if (prevStep.mode === 'interval' && nextStep.mode === 'interval') {
-                    runTimer(nextStep.time, 'interval');
-                }
-            } else {
-                finishWorkout();
+                triggerGoSignal();
+                setTimeout(() => {
+                    completeStep();
+                }, 2000);
             }
-        }
+        }, 1000);
+    }
 
-        function triggerGoSignal() {
-            const overlay = document.getElementById('flash-overlay');
-            overlay.style.display = 'flex';
-            beep(880, 0.5, 'square');
-            setTimeout(() => { overlay.style.display = 'none'; }, 1500);
-        }
+    function completeStep() {
+        const btn = document.getElementById('action-btn');
+        btn.onclick = handleAction; 
 
-        function finishWorkout() {
-            const endTime = new Date();
-            const durationMs = endTime - startTime;
-            const durationMins = Math.floor(durationMs / 60000);
+        currentDist += workoutPlan[currentIndex].dist;
+        currentIndex++;
+        
+        if (currentIndex < workoutPlan.length) {
+            // Auto-Chain Interval Logic
+            const prevStep = workoutPlan[currentIndex - 1];
+            const nextStep = workoutPlan[currentIndex];
+            
+            renderCard();
 
-            // Log Data
-            const log = {
-                date: new Date().toLocaleDateString() + " " + new Date().toLocaleTimeString(),
-                dist: totalDist,
-                duration: durationMins + " mins"
-            };
-
-            saveLog(log);
-            quitWorkout();
-        }
-
-        function quitWorkout() {
-            if (timerInterval) clearInterval(timerInterval);
-            document.getElementById('view-workout').classList.remove('active-view');
-            document.getElementById('view-home').classList.add('active-view');
-            // Reset file input so same file can be selected again
-            document.getElementById('csv-upload').value = '';
-            loadHistory();
-        }
-
-        // --- HISTORY / STORAGE ---
-        function saveLog(logEntry) {
-            let history = JSON.parse(localStorage.getItem('swimLogs') || "[]");
-            history.unshift(logEntry); // Add to top
-            localStorage.setItem('swimLogs', JSON.stringify(history));
-        }
-
-        function loadHistory() {
-            let history = JSON.parse(localStorage.getItem('swimLogs') || "[]");
-            const list = document.getElementById('history-list');
-            list.innerHTML = "";
-
-            if (history.length === 0) {
-                list.innerHTML = `<div style="text-align:center; color:#555; margin-top:20px;">No logs yet.</div>`;
-                return;
+            if (prevStep.mode === 'interval' && nextStep.mode === 'interval') {
+                runTimer(nextStep.time);
             }
+        } else {
+            finishWorkout();
+        }
+    }
 
-            history.forEach(log => {
-                const div = document.createElement('div');
-                div.className = 'log-item';
-                div.innerHTML = `
+    function triggerGoSignal() {
+        const overlay = document.getElementById('flash-overlay');
+        overlay.style.display = 'flex';
+        beep(880, 0.5, 'square');
+        setTimeout(() => { overlay.style.display = 'none'; }, 1500);
+    }
+
+    function finishWorkout() {
+        const endTime = new Date();
+        const durationMs = endTime - startTime;
+        const durationMins = Math.floor(durationMs / 60000);
+        
+        const log = {
+            date: new Date().toLocaleDateString() + " " + new Date().toLocaleTimeString(),
+            dist: totalDist,
+            duration: durationMins + " mins"
+        };
+        
+        saveLog(log);
+        quitWorkout();
+    }
+
+    function quitWorkout() {
+        if (timerInterval) clearInterval(timerInterval);
+        document.getElementById('view-workout').classList.remove('active-view');
+        document.getElementById('view-home').classList.add('active-view');
+        document.getElementById('csv-upload').value = '';
+        
+        // Refresh history
+        loadHistory();
+        checkSavedWorkout();
+    }
+
+    // --- HISTORY / STORAGE ---
+    function saveLog(logEntry) {
+        let history = JSON.parse(localStorage.getItem('swimLogs') || "[]");
+        history.unshift(logEntry);
+        localStorage.setItem('swimLogs', JSON.stringify(history));
+    }
+
+    function loadHistory() {
+        let history = JSON.parse(localStorage.getItem('swimLogs') || "[]");
+        const list = document.getElementById('history-list');
+        list.innerHTML = "";
+        
+        if (history.length === 0) {
+            list.innerHTML = `<div style="text-align:center; color:#555; margin-top:20px;">No logs yet.</div>`;
+            return;
+        }
+
+        history.forEach(log => {
+            const div = document.createElement('div');
+            div.className = 'log-item';
+            div.innerHTML = `
                 <div><span class="log-date">${log.date}</span></div>
                 <div class="log-stats">${log.dist}m / ${log.duration}</div>
             `;
-                list.appendChild(div);
-            });
-        }
+            list.appendChild(div);
+        });
+    }
 
-        function clearHistory() {
-            if (confirm("Delete all training logs?")) {
-                localStorage.removeItem('swimLogs');
-                loadHistory();
-            }
+    function clearHistory() {
+        if(confirm("Delete all training logs?")) {
+            localStorage.removeItem('swimLogs');
+            loadHistory();
         }
+    }
 
-        // --- UTILS ---
-        function formatTime(s) {
-            let min = Math.floor(s / 60);
-            let sec = s % 60;
-            return `${min}:${sec < 10 ? '0' : ''}${sec}`;
-        }
+    // --- UTILS ---
+    function formatTime(s) {
+        let min = Math.floor(s / 60);
+        let sec = s % 60;
+        return `${min}:${sec < 10 ? '0' : ''}${sec}`;
+    }
 
-        function initAudio() {
-            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-        }
+    function initAudio() {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
 
-        function beep(freq, duration, type = 'sine') {
-            if (!audioCtx) return;
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.type = type;
-            osc.frequency.value = freq;
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            osc.start();
-            gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + duration);
-            osc.stop(audioCtx.currentTime + duration);
-        }
+    function beep(freq, duration, type='sine') {
+        if (!audioCtx) return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.value = freq;
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + duration);
+        osc.stop(audioCtx.currentTime + duration);
+    }
 
-    </script>
+</script>
 </body>
-
 </html>
