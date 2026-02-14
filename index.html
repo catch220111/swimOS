@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SwimOS v1.1</title>
-    
+    <title>SwimOS v2.0</title>
+
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#000000">
     <link rel="apple-touch-icon" href="assets/png/icon-192.png">
@@ -21,163 +21,441 @@
     <style>
         :root {
             --bg-color: #000000;
-            --card-bg: #1c1c1e;
+            --card-bg: #141414;
             --text-main: #ffffff;
-            --text-muted: #8e8e93;
-            --accent: #0A84FF; /* iOS Blue */
-            --success: #30D158; /* iOS Green */
-            --danger: #FF453A; /* iOS Red */
-            --warning: #FF9F0A; /* iOS Orange */
+            --text-muted: #9ea0a8;
+            --accent: #29a3ff;
+            --success: #00d66f;
+            --danger: #ff3d38;
+            --warning: #ffb000;
+            --clock-green: #00ff6e;
+            --clock-red: #ff1c1c;
         }
 
+        * { box-sizing: border-box; }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg-color);
+            font-family: "Avenir Next", "Segoe UI", sans-serif;
+            background: radial-gradient(circle at top, #171717 0%, #000000 55%);
             color: var(--text-main);
             margin: 0;
-            padding: 0;
             height: 100vh;
             display: flex;
             flex-direction: column;
             overflow: hidden;
         }
 
-        /* --- VIEWS --- */
         .view {
             display: none;
             flex-direction: column;
             height: 100%;
             width: 100%;
-            padding: 20px;
-            box-sizing: border-box;
+            padding: 16px;
             overflow-y: auto;
+            gap: 12px;
         }
 
         .active-view { display: flex; }
 
-        /* --- COMPONENTS --- */
-        h1 { margin-bottom: 5px; font-size: 1.8rem; }
-        h2 { color: var(--text-muted); font-size: 1rem; font-weight: normal; margin-top: 0; margin-bottom: 20px;}
+        h1 { margin: 0; font-size: 1.9rem; letter-spacing: 0.02em; }
+        h2 { margin: 0; font-size: 1rem; color: var(--text-muted); font-weight: 500; }
 
         .btn {
             background: var(--card-bg);
-            color: var(--accent);
-            border: 1px solid #333;
-            padding: 15px;
+            color: var(--text-main);
+            border: 1px solid #303030;
+            padding: 14px;
             border-radius: 12px;
-            font-size: 1.1rem;
-            font-weight: 600;
+            font-size: 1rem;
+            font-weight: 700;
             width: 100%;
-            margin-bottom: 10px;
             cursor: pointer;
             text-align: center;
         }
-        .btn-primary { background: var(--accent); color: white; border: none; }
-        .btn-success { background: var(--success); color: black; border: none; }
-        
+
+        .btn-primary { background: var(--accent); color: #04131c; border: none; }
+        .btn-success { background: var(--success); color: #002412; border: none; }
+        .btn-danger { background: var(--danger); color: #fff; border: none; }
+        .btn-warning { background: var(--warning); color: #251800; border: none; }
+
         .file-input { display: none; }
-        
-        /* --- HISTORY LIST --- */
+
         .log-item {
             background: var(--card-bg);
-            padding: 15px;
+            padding: 14px;
             border-radius: 10px;
-            margin-bottom: 10px;
             display: flex;
             justify-content: space-between;
+            gap: 12px;
+            font-size: 0.95rem;
+        }
+
+        .log-date { font-weight: 700; display: block; }
+        .log-stats { color: var(--text-muted); text-align: right; }
+
+        .panel {
+            background: var(--card-bg);
+            border: 1px solid #2a2a2a;
+            border-radius: 14px;
+            padding: 12px;
+        }
+
+        .panel-title {
+            margin: 0 0 10px;
+            font-size: 0.86rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .row { display: flex; gap: 10px; align-items: center; }
+        .row-wrap { display: flex; gap: 8px; flex-wrap: wrap; }
+        .grow { flex: 1; }
+
+        .tag-btn {
+            background: #202020;
+            border: 1px solid #383838;
+            color: var(--text-main);
+            border-radius: 10px;
+            padding: 8px 10px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .tag-btn.active {
+            background: #ffffff;
+            color: #000;
+            border-color: #fff;
+        }
+
+        #workout-topbar {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 10px;
             align-items: center;
         }
-        .log-date { font-weight: bold; display: block; }
-        .log-stats { font-size: 0.9rem; color: var(--text-muted); }
 
-        /* --- WORKOUT CARD --- */
+        #progress-text { color: #aaa; font-weight: 700; }
+
         #active-card {
-            flex-grow: 1;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             text-align: center;
-            background: var(--card-bg);
-            border-radius: 20px;
-            margin-bottom: 20px;
-            padding: 20px;
+            background: #090909;
+            border: 2px solid #292929;
+            border-radius: 18px;
+            padding: 18px;
+            min-height: 42vh;
         }
-        
-        .timer-display { font-size: 6rem; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1;}
-        .dist-display { font-size: 3rem; font-weight: bold; color: var(--accent); margin: 10px 0; }
-        .desc-text { font-size: 1.2rem; color: #ddd; margin-top: 20px; line-height: 1.4; }
-        .next-up { color: var(--text-muted); margin-top: 30px; font-size: 0.9rem; text-transform: uppercase;}
-        
-        /* --- OVERLAY --- */
-        #flash-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: var(--success);
-            display: none;
-            justify-content: center; align-items: center;
-            z-index: 1000;
-        }
-        .flash-text { font-size: 8rem; color: black; font-weight: 900; }
 
+        .timer-display {
+            font-size: clamp(4rem, 18vw, 8rem);
+            font-weight: 900;
+            font-variant-numeric: tabular-nums;
+            line-height: 1;
+            letter-spacing: 0.03em;
+        }
+
+        .dist-display { font-size: clamp(2rem, 8vw, 3.2rem); font-weight: 800; color: var(--accent); margin: 6px 0; }
+        .desc-text { font-size: 1.1rem; color: #dfdfdf; margin-top: 12px; line-height: 1.3; }
+        .next-up { color: var(--text-muted); margin-top: 10px; font-size: 0.86rem; text-transform: uppercase; }
+
+        #phase-pill {
+            margin-top: 12px;
+            font-weight: 900;
+            border-radius: 999px;
+            padding: 6px 14px;
+            font-size: 0.95rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #001f0e;
+            background: var(--clock-green);
+        }
+
+        #phase-pill.rest {
+            color: #fff;
+            background: var(--clock-red);
+        }
+
+        #controls-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .toggle-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            border: 1px solid #303030;
+            border-radius: 10px;
+            padding: 10px;
+            font-size: 0.9rem;
+        }
+
+        .toggle-item input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+        }
+
+        .quick-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+        }
+
+        .quick-grid button {
+            border: 1px solid #3a3a3a;
+            border-radius: 10px;
+            padding: 10px 0;
+            background: #1c1c1c;
+            color: #fff;
+            font-weight: 800;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+
+        .quick-grid button.active {
+            background: var(--success);
+            color: #041708;
+            border-color: var(--success);
+        }
+
+        #rpe-slider { width: 100%; }
+
+        .muted { color: var(--text-muted); font-size: 0.9rem; }
+
+        input, select {
+            width: 100%;
+            border: 1px solid #3a3a3a;
+            border-radius: 10px;
+            background: #111;
+            color: #fff;
+            padding: 10px;
+            font-size: 0.96rem;
+        }
+
+        #flash-overlay {
+            position: fixed;
+            inset: 0;
+            background: var(--clock-green);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            text-align: center;
+        }
+
+        #flash-overlay .flash-text { font-size: clamp(4rem, 20vw, 11rem); color: #000; font-weight: 900; }
+
+        #jumbo-clock {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 1100;
+            background: #000;
+            color: var(--clock-green);
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            text-align: center;
+            padding: 14px;
+        }
+
+        #jumbo-clock.rest {
+            color: var(--clock-red);
+        }
+
+        #jumbo-time {
+            font-size: clamp(6rem, 30vw, 16rem);
+            font-weight: 900;
+            line-height: 0.95;
+            letter-spacing: 0.04em;
+            font-variant-numeric: tabular-nums;
+        }
+
+        #jumbo-meta { font-size: clamp(1.1rem, 3vw, 1.6rem); text-transform: uppercase; letter-spacing: 0.08em; }
+
+        #wet-layer {
+            position: fixed;
+            inset: 0;
+            z-index: 1200;
+            display: none;
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .wet-zone {
+            border: none;
+            font-size: clamp(2rem, 8vw, 4rem);
+            font-weight: 900;
+            color: #fff;
+            opacity: 0.84;
+            cursor: pointer;
+        }
+
+        #wet-pause { background: rgba(255, 0, 0, 0.35); }
+        #wet-lap { background: rgba(0, 255, 90, 0.28); }
+
+        .voice-status { min-height: 1.2rem; font-size: 0.9rem; color: var(--text-muted); }
+
+        @media (max-width: 760px) {
+            .quick-grid { grid-template-columns: repeat(3, 1fr); }
+            #controls-grid { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body>
-
     <div id="view-home" class="view active-view">
         <h1>SwimOS</h1>
-        <h2>Training Log & Launcher</h2>
-        
-        <button id="btn-resume" class="btn btn-success" style="display:none;" onclick="resumeWorkout()">
-            &#9658; Resume Last Workout
-        </button>
+        <h2>Pool-first training, logging, and pacing tools</h2>
+
+        <button id="btn-resume" class="btn btn-success" style="display:none;" onclick="resumeWorkout()">▶ Resume Last Workout</button>
 
         <button class="btn btn-primary" onclick="document.getElementById('csv-upload').click()">+ Load New CSV</button>
         <input type="file" id="csv-upload" class="file-input" accept=".csv" onchange="handleFileUpload(this)">
-        
-        <div style="margin-top: 20px; margin-bottom: 10px; text-transform: uppercase; color: #555; font-size: 0.8rem; font-weight: bold;">History</div>
-        <div id="history-list">
+
+        <div class="panel">
+            <h3 class="panel-title">Test Set Tracker (CSS)</h3>
+            <div class="row">
+                <div class="grow">
+                    <label class="muted" for="css-d400">400m Time</label>
+                    <input id="css-d400" type="text" placeholder="e.g. 5:40">
+                </div>
+                <div class="grow">
+                    <label class="muted" for="css-d200">200m Time</label>
+                    <input id="css-d200" type="text" placeholder="e.g. 2:45">
+                </div>
             </div>
-        
-        <button class="btn" style="margin-top: auto;" onclick="clearHistory()">Clear Logs</button>
+            <button class="btn" style="margin-top:10px;" onclick="calculateCSS()">Calculate CSS Pace</button>
+            <div id="css-result" class="muted"></div>
+        </div>
+
+        <div style="margin-top: 2px; text-transform: uppercase; color: #6b6b6b; font-size: 0.8rem; font-weight: 800; letter-spacing: 0.08em;">History</div>
+        <div id="history-list"></div>
+
+        <button class="btn" style="margin-top:auto;" onclick="clearHistory()">Clear Logs</button>
     </div>
 
     <div id="view-workout" class="view">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-            <div id="progress-text" style="color:#777;">0 / 0m</div>
-            <button style="background:none; border:none; color:red; font-weight:bold;" onclick="quitWorkout()">QUIT</button>
+        <div id="workout-topbar">
+            <div id="progress-text">0 / 0m</div>
+            <button class="btn btn-danger" style="width:auto; margin:0; padding:10px 12px;" onclick="quitWorkout()">QUIT</button>
         </div>
 
         <div id="active-card">
-            <div style="color:var(--text-muted); text-transform:uppercase; font-size:0.9rem; font-weight:bold; letter-spacing:1px;" id="card-section">SECTION</div>
+            <div style="color:var(--text-muted); text-transform:uppercase; font-size:0.88rem; font-weight:700; letter-spacing:1px;" id="card-section">SECTION</div>
             <div class="dist-display" id="card-dist">0m</div>
-            <div style="font-size:1.5rem; font-weight:bold; margin-bottom:10px;" id="card-title">Ready?</div>
-            
+            <div style="font-size:1.45rem; font-weight:900; margin-bottom:6px;" id="card-title">Ready?</div>
             <div class="timer-display" id="main-timer">00:00</div>
-            
+            <div id="phase-pill">GO</div>
             <div class="desc-text" id="card-desc"></div>
             <div class="next-up" id="card-next"></div>
         </div>
 
+        <div id="controls-grid">
+            <label class="toggle-item">Jumbo Mode <input id="toggle-jumbo" type="checkbox" onchange="toggleJumboMode(this.checked)"></label>
+            <label class="toggle-item">Wet Mode <input id="toggle-wet" type="checkbox" onchange="toggleWetMode(this.checked)"></label>
+            <label class="toggle-item">Auto Loop <input id="toggle-autoloop" type="checkbox" checked onchange="state.autoLoop=this.checked"></label>
+            <label class="toggle-item">Always On <input id="toggle-wakelock" type="checkbox" onchange="toggleWakeLock(this.checked)"></label>
+            <label class="toggle-item">Voice Control <input id="toggle-voice" type="checkbox" onchange="toggleVoiceControl(this.checked)"></label>
+            <label class="toggle-item">Planned Complete <input id="toggle-planned" type="checkbox" checked onchange="state.completedAsPlanned=this.checked"></label>
+        </div>
+
+        <div class="panel">
+            <h3 class="panel-title">Whistle Start</h3>
+            <div class="row-wrap">
+                <button class="tag-btn" onclick="playWhistleStart()">Take Your Marks... BEEP</button>
+                <button class="tag-btn" onclick="runVoiceHint()">Show Voice Commands</button>
+            </div>
+            <div id="voice-status" class="voice-status"></div>
+        </div>
+
         <button class="btn btn-primary" id="action-btn" onclick="handleAction()">START</button>
+
+        <div class="panel">
+            <h3 class="panel-title">Quick Log</h3>
+            <div id="quick-log-grid" class="quick-grid"></div>
+            <div class="row" style="margin-top:10px;">
+                <div class="grow">
+                    <label class="muted" for="rpe-slider">RPE (1-10): <span id="rpe-value">5</span></label>
+                    <input id="rpe-slider" type="range" min="1" max="10" value="5" oninput="setRPE(this.value)">
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h3 class="panel-title">Fail Point Logging</h3>
+            <div class="row">
+                <select id="fail-cycle">
+                    <option value="">Missed cycle</option>
+                    <option>1:05</option>
+                    <option>1:10</option>
+                    <option>1:15</option>
+                    <option>1:20</option>
+                    <option>1:30</option>
+                </select>
+                <input id="fail-rep" type="number" min="1" placeholder="Rep #">
+                <button class="btn" style="width:auto; margin:0;" onclick="saveFailPoint()">Log Fail</button>
+            </div>
+            <div id="fail-point-output" class="muted"></div>
+        </div>
     </div>
 
     <div id="flash-overlay"><div class="flash-text">GO!</div></div>
 
-<script>
-    // --- STATE ---
-    let workoutPlan = [];
-    let currentIndex = 0;
-    let timerInterval = null;
-    let totalDist = 0;
-    let currentDist = 0;
-    let startTime = null;
-    let audioCtx = null;
+    <div id="jumbo-clock">
+        <div id="jumbo-time">0:00</div>
+        <div id="jumbo-meta">READY</div>
+        <button class="btn" style="max-width:280px; margin-top:18px;" onclick="toggleJumboMode(false)">Exit Jumbo</button>
+    </div>
 
-    // --- INITIALIZATION ---
+    <div id="wet-layer">
+        <button id="wet-pause" class="wet-zone" onclick="togglePause()">PAUSE</button>
+        <button id="wet-lap" class="wet-zone" onclick="lapOrNext()">LAP / NEXT</button>
+    </div>
+
+<script>
+    const state = {
+        workoutPlan: [],
+        currentIndex: 0,
+        timerInterval: null,
+        totalDist: 0,
+        currentDist: 0,
+        startTime: null,
+        audioCtx: null,
+        autoLoop: true,
+        completedAsPlanned: true,
+        rpe: 5,
+        selectedQuickTime: null,
+        failPoint: null,
+        wakeLock: null,
+        isPaused: false,
+        timeLeft: 0,
+        runningMode: null,
+        recognition: null,
+        voiceActive: false,
+        jumboMode: false,
+        wetMode: false,
+        spokenReadyArmed: false,
+        lapCount: 0
+    };
+
     window.onload = function() {
         loadHistory();
         checkSavedWorkout();
+        renderQuickLogGrid();
+        setPhaseUI('interval');
     };
+
+    document.addEventListener('visibilitychange', async () => {
+        if (document.visibilityState === 'visible' && document.getElementById('toggle-wakelock').checked) {
+            await requestWakeLock();
+        }
+    });
 
     function checkSavedWorkout() {
         const saved = localStorage.getItem('currentWorkoutPlan');
@@ -186,7 +464,6 @@
         }
     }
 
-    // --- CSV PARSER ---
     function handleFileUpload(input) {
         const file = input.files[0];
         if (!file) return;
@@ -201,231 +478,301 @@
     function parseCSV(csvText) {
         let newPlan = [];
         let newTotal = 0;
-        
         const lines = csvText.split('\n');
-        
-        // Skip header (row 0), start at 1
+
         for (let i = 1; i < lines.length; i++) {
             const line = lines[i].trim();
             if (!line) continue;
-            
-            // CSV: Section, Reps, Dist, Mode, Seconds, Desc
+
             const cols = line.split(',');
             if (cols.length < 5) continue;
 
-            const reps = parseInt(cols[1]);
-            const dist = parseInt(cols[2]);
-            const mode = cols[3].trim().toLowerCase(); 
-            const time = parseInt(cols[4]);
-            const desc = cols.slice(5).join(','); 
+            const reps = parseInt(cols[1], 10) || 1;
+            const dist = parseInt(cols[2], 10) || 0;
+            const mode = (cols[3] || '').trim().toLowerCase();
+            const time = parseInt(cols[4], 10) || 0;
+            const desc = cols.slice(5).join(',').trim();
 
             for (let r = 1; r <= reps; r++) {
                 newPlan.push({
                     section: cols[0],
-                    dist: dist,
-                    mode: mode,
-                    time: time,
-                    desc: desc,
+                    dist,
+                    mode: mode === 'rest' ? 'rest' : 'interval',
+                    time,
+                    desc,
                     rep: r,
                     totalReps: reps
                 });
                 newTotal += dist;
             }
         }
-        
+
         if (newPlan.length > 0) {
-            // Save to LocalStorage
-            workoutPlan = newPlan;
-            totalDist = newTotal;
-            localStorage.setItem('currentWorkoutPlan', JSON.stringify(workoutPlan));
-            
+            state.workoutPlan = newPlan;
+            state.totalDist = newTotal;
+            localStorage.setItem('currentWorkoutPlan', JSON.stringify(state.workoutPlan));
             startWorkoutMode();
         } else {
-            alert("Error: Invalid CSV format.");
+            alert('Error: Invalid CSV format.');
         }
     }
 
     function resumeWorkout() {
         const saved = localStorage.getItem('currentWorkoutPlan');
-        if (saved) {
-            workoutPlan = JSON.parse(saved);
-            // Recalculate total
-            totalDist = workoutPlan.reduce((acc, curr) => acc + curr.dist, 0);
-            startWorkoutMode();
-        }
+        if (!saved) return;
+        state.workoutPlan = JSON.parse(saved);
+        state.totalDist = state.workoutPlan.reduce((acc, curr) => acc + (curr.dist || 0), 0);
+        startWorkoutMode();
     }
 
-    // --- WORKOUT ENGINE ---
     function startWorkoutMode() {
         document.getElementById('view-home').classList.remove('active-view');
         document.getElementById('view-workout').classList.add('active-view');
-        
-        currentIndex = 0;
-        currentDist = 0;
-        startTime = new Date();
+
+        state.currentIndex = 0;
+        state.currentDist = 0;
+        state.startTime = new Date();
+        state.selectedQuickTime = null;
+        state.failPoint = null;
+        state.isPaused = false;
+        state.lapCount = 0;
         initAudio();
-        
+
         renderCard();
     }
 
     function renderCard() {
-        const step = workoutPlan[currentIndex];
-        
-        // Update UI
-        document.getElementById('progress-text').innerText = `${currentDist} / ${totalDist}m`;
-        document.getElementById('card-section').innerText = step.section;
+        const step = state.workoutPlan[state.currentIndex];
+        if (!step) return;
+
+        document.getElementById('progress-text').innerText = `${state.currentDist} / ${state.totalDist}m`;
+        document.getElementById('card-section').innerText = step.section || 'SET';
         document.getElementById('card-dist').innerText = `${step.dist}m`;
-        
-        let title = `${step.desc}`;
+
+        let title = step.desc || 'Swim';
         if (step.totalReps > 1) {
-            title = `Rep ${step.rep}/${step.totalReps}: ${step.desc}`; 
+            title = `Rep ${step.rep}/${step.totalReps}: ${title}`;
         }
+
         document.getElementById('card-title').innerText = title;
-        document.getElementById('card-desc').innerText = step.mode === 'interval' ? `Leave on ${formatTime(step.time)}` : `Rest: ${step.time}s`;
+        document.getElementById('card-desc').innerText = step.mode === 'interval' ? `Leave on ${formatTime(step.time)}` : `Rest ${step.time}s`;
 
-        // Preview Next
-        if (workoutPlan[currentIndex + 1]) {
-            document.getElementById('card-next').innerText = "NEXT: " + workoutPlan[currentIndex + 1].desc;
-        } else {
-            document.getElementById('card-next').innerText = "NEXT: FINISH";
-        }
+        const nextStep = state.workoutPlan[state.currentIndex + 1];
+        document.getElementById('card-next').innerText = nextStep ? `NEXT: ${nextStep.desc || 'Swim'}` : 'NEXT: FINISH';
 
-        // Timer Setup
-        document.getElementById('main-timer').innerText = formatTime(step.time);
-        
-        // Button Logic
+        state.timeLeft = step.time;
+        state.runningMode = step.mode;
+        updateTimerDisplay(step.time);
+        setPhaseUI(step.mode);
+
         const btn = document.getElementById('action-btn');
-        btn.onclick = handleAction; // Reset click handler
-        
-        if (step.mode === 'interval') {
-            btn.innerText = "START INTERVAL";
-            btn.style.backgroundColor = getComputedStyle(document.documentElement).getPropertyValue('--success');
-        } else {
-            btn.innerText = "START REST";
-            btn.style.backgroundColor = getComputedStyle(document.documentElement).getPropertyValue('--warning');
-        }
+        btn.onclick = handleAction;
+        btn.innerText = step.mode === 'interval' ? 'START INTERVAL' : 'START REST';
+        btn.className = `btn ${step.mode === 'interval' ? 'btn-success' : 'btn-warning'}`;
     }
 
     function handleAction() {
-        const step = workoutPlan[currentIndex];
-        
-        if (step.time === 0) {
-            completeStep();
+        const step = state.workoutPlan[state.currentIndex];
+        if (!step) return;
+
+        if (!state.spokenReadyArmed) {
+            playWhistleStart();
+            state.spokenReadyArmed = true;
+            setTimeout(() => runTimer(step.time, step.mode), 1300);
             return;
         }
 
-        runTimer(step.time);
+        runTimer(step.time, step.mode);
     }
 
-    function runTimer(seconds) {
-        let timeLeft = seconds;
-        const display = document.getElementById('main-timer');
+    function runTimer(seconds, mode) {
+        clearExistingTimer();
+        state.timeLeft = seconds;
+        state.runningMode = mode;
+        state.isPaused = false;
+        setPhaseUI(mode);
+
         const btn = document.getElementById('action-btn');
-        
-        // Change button to "Skip"
-        btn.innerText = "SKIP / NEXT";
-        btn.style.backgroundColor = "#333";
-        btn.onclick = () => {
-            clearInterval(timerInterval);
-            completeStep();
-        };
+        btn.innerText = 'SKIP / NEXT';
+        btn.className = 'btn';
+        btn.onclick = lapOrNext;
 
-        if (timerInterval) clearInterval(timerInterval);
-        
-        timerInterval = setInterval(() => {
-            timeLeft--;
-            display.innerText = formatTime(timeLeft);
-            
-            // Audio Cues
-            if (timeLeft <= 3 && timeLeft > 0) beep(600, 0.1);
+        updateTimerDisplay(state.timeLeft);
 
-            if (timeLeft <= 0) {
-                clearInterval(timerInterval);
+        state.timerInterval = setInterval(() => {
+            if (state.isPaused) return;
+
+            state.timeLeft -= 1;
+            updateTimerDisplay(state.timeLeft);
+
+            if (state.timeLeft <= 3 && state.timeLeft > 0) {
+                beep(1200, 0.12, 'square', 0.24);
+            }
+
+            if (state.timeLeft <= 0) {
+                clearExistingTimer();
                 triggerGoSignal();
-                setTimeout(() => {
-                    completeStep();
-                }, 2000);
+
+                if (state.autoLoop && mode === 'rest') {
+                    setTimeout(() => {
+                        completeStep(true);
+                    }, 900);
+                } else {
+                    setTimeout(() => completeStep(false), 900);
+                }
             }
         }, 1000);
     }
 
-    function completeStep() {
-        const btn = document.getElementById('action-btn');
-        btn.onclick = handleAction; 
+    function togglePause() {
+        if (!state.timerInterval) return;
+        state.isPaused = !state.isPaused;
+        document.getElementById('wet-pause').innerText = state.isPaused ? 'RESUME' : 'PAUSE';
+        document.getElementById('action-btn').innerText = state.isPaused ? 'PAUSED' : 'SKIP / NEXT';
+    }
 
-        currentDist += workoutPlan[currentIndex].dist;
-        currentIndex++;
-        
-        if (currentIndex < workoutPlan.length) {
-            // Auto-Chain Interval Logic
-            const prevStep = workoutPlan[currentIndex - 1];
-            const nextStep = workoutPlan[currentIndex];
-            
+    function lapOrNext() {
+        state.lapCount += 1;
+        completeStep(false);
+    }
+
+    function completeStep(fromAutoLoop) {
+        const step = state.workoutPlan[state.currentIndex];
+        if (!step) return;
+
+        state.currentDist += step.dist;
+        state.currentIndex += 1;
+
+        if (state.currentIndex < state.workoutPlan.length) {
             renderCard();
 
-            if (prevStep.mode === 'interval' && nextStep.mode === 'interval') {
-                runTimer(nextStep.time);
+            const next = state.workoutPlan[state.currentIndex];
+            if (state.autoLoop && (fromAutoLoop || next.mode === 'rest')) {
+                runTimer(next.time, next.mode);
             }
         } else {
             finishWorkout();
         }
     }
 
+    function setPhaseUI(mode) {
+        const pill = document.getElementById('phase-pill');
+        const card = document.getElementById('active-card');
+        const isRest = mode === 'rest';
+
+        pill.innerText = isRest ? 'REST' : 'GO';
+        pill.classList.toggle('rest', isRest);
+        card.style.borderColor = isRest ? '#5c1e1e' : '#1c5a3a';
+
+        const jumbo = document.getElementById('jumbo-clock');
+        jumbo.classList.toggle('rest', isRest);
+        document.getElementById('jumbo-meta').innerText = isRest ? 'REST' : 'GO';
+    }
+
+    function updateTimerDisplay(seconds) {
+        const text = formatTime(Math.max(0, seconds));
+        document.getElementById('main-timer').innerText = text;
+        document.getElementById('jumbo-time').innerText = text;
+    }
+
     function triggerGoSignal() {
         const overlay = document.getElementById('flash-overlay');
         overlay.style.display = 'flex';
-        beep(880, 0.5, 'square');
-        setTimeout(() => { overlay.style.display = 'none'; }, 1500);
+        beep(1450, 0.28, 'square', 0.5);
+        setTimeout(() => {
+            overlay.style.display = 'none';
+        }, 650);
+    }
+
+    function playWhistleStart() {
+        initAudio();
+        speakText('Take your marks');
+        setTimeout(() => beep(1850, 0.38, 'square', 0.95), 750);
+    }
+
+    function runVoiceHint() {
+        document.getElementById('voice-status').innerText = 'Commands: "next set", "pause", "resume", "log 1:05", "rpe 7"';
     }
 
     function finishWorkout() {
         const endTime = new Date();
-        const durationMs = endTime - startTime;
-        const durationMins = Math.floor(durationMs / 60000);
-        
+        const durationMs = endTime - state.startTime;
+        const durationMins = Math.max(1, Math.floor(durationMs / 60000));
+
+        const completedDist = state.completedAsPlanned ? state.totalDist : state.currentDist;
+
         const log = {
-            date: new Date().toLocaleDateString() + " " + new Date().toLocaleTimeString(),
-            dist: totalDist,
-            duration: durationMins + " mins"
+            date: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString(),
+            dist: completedDist,
+            duration: durationMins + ' mins',
+            quickTime: state.selectedQuickTime || '-',
+            rpe: state.rpe,
+            completedMode: state.completedAsPlanned ? 'planned' : 'actual',
+            failPoint: state.failPoint || '-',
+            laps: state.lapCount
         };
-        
+
         saveLog(log);
         quitWorkout();
     }
 
     function quitWorkout() {
-        if (timerInterval) clearInterval(timerInterval);
+        clearExistingTimer();
         document.getElementById('view-workout').classList.remove('active-view');
         document.getElementById('view-home').classList.add('active-view');
         document.getElementById('csv-upload').value = '';
-        
-        // Refresh history
+        document.getElementById('toggle-wet').checked = false;
+        document.getElementById('toggle-jumbo').checked = false;
+        toggleWetMode(false);
+        toggleJumboMode(false);
+        toggleVoiceControl(false);
+        document.getElementById('toggle-voice').checked = false;
+        releaseWakeLock();
+        document.getElementById('toggle-wakelock').checked = false;
+        state.spokenReadyArmed = false;
+
         loadHistory();
         checkSavedWorkout();
     }
 
-    // --- HISTORY / STORAGE ---
+    function clearExistingTimer() {
+        if (state.timerInterval) {
+            clearInterval(state.timerInterval);
+            state.timerInterval = null;
+        }
+    }
+
     function saveLog(logEntry) {
-        let history = JSON.parse(localStorage.getItem('swimLogs') || "[]");
+        const history = JSON.parse(localStorage.getItem('swimLogs') || '[]');
         history.unshift(logEntry);
         localStorage.setItem('swimLogs', JSON.stringify(history));
     }
 
     function loadHistory() {
-        let history = JSON.parse(localStorage.getItem('swimLogs') || "[]");
+        const history = JSON.parse(localStorage.getItem('swimLogs') || '[]');
         const list = document.getElementById('history-list');
-        list.innerHTML = "";
-        
+        list.innerHTML = '';
+
         if (history.length === 0) {
-            list.innerHTML = `<div style="text-align:center; color:#555; margin-top:20px;">No logs yet.</div>`;
+            list.innerHTML = '<div style="text-align:center; color:#666; margin-top:10px;">No logs yet.</div>';
             return;
         }
 
         history.forEach(log => {
             const div = document.createElement('div');
             div.className = 'log-item';
+            const extra = [
+                log.quickTime ? `T:${log.quickTime}` : null,
+                log.rpe ? `RPE:${log.rpe}` : null,
+                log.completedMode ? `Mode:${log.completedMode}` : null,
+                log.failPoint && log.failPoint !== '-' ? `Fail:${log.failPoint}` : null
+            ].filter(Boolean).join(' | ');
+
             div.innerHTML = `
-                <div><span class="log-date">${log.date}</span></div>
+                <div>
+                    <span class="log-date">${log.date}</span>
+                    <span class="muted">${extra || 'Classic log'}</span>
+                </div>
                 <div class="log-stats">${log.dist}m / ${log.duration}</div>
             `;
             list.appendChild(div);
@@ -433,37 +780,251 @@
     }
 
     function clearHistory() {
-        if(confirm("Delete all training logs?")) {
+        if (confirm('Delete all training logs?')) {
             localStorage.removeItem('swimLogs');
             loadHistory();
         }
     }
 
-    // --- UTILS ---
     function formatTime(s) {
-        let min = Math.floor(s / 60);
-        let sec = s % 60;
-        return `${min}:${sec < 10 ? '0' : ''}${sec}`;
+        const sec = Math.max(0, parseInt(s, 10) || 0);
+        const min = Math.floor(sec / 60);
+        const rem = sec % 60;
+        return `${min}:${rem < 10 ? '0' : ''}${rem}`;
+    }
+
+    function parseTimeToSeconds(value) {
+        if (!value) return NaN;
+        const trimmed = String(value).trim();
+        if (trimmed.includes(':')) {
+            const parts = trimmed.split(':').map(v => parseInt(v, 10));
+            if (parts.some(Number.isNaN)) return NaN;
+            if (parts.length === 2) return parts[0] * 60 + parts[1];
+        }
+        const single = parseInt(trimmed, 10);
+        return Number.isNaN(single) ? NaN : single;
     }
 
     function initAudio() {
-        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        if (audioCtx.state === 'suspended') audioCtx.resume();
+        if (!state.audioCtx) {
+            state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (state.audioCtx.state === 'suspended') {
+            state.audioCtx.resume();
+        }
     }
 
-    function beep(freq, duration, type='sine') {
-        if (!audioCtx) return;
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
+    function beep(freq, duration, type = 'sine', volume = 0.35) {
+        if (!state.audioCtx) return;
+
+        const osc = state.audioCtx.createOscillator();
+        const gain = state.audioCtx.createGain();
         osc.type = type;
         osc.frequency.value = freq;
+
         osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start();
-        gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + duration);
-        osc.stop(audioCtx.currentTime + duration);
+        gain.connect(state.audioCtx.destination);
+
+        const now = state.audioCtx.currentTime;
+        gain.gain.setValueAtTime(Math.max(0.0001, volume), now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+        osc.start(now);
+        osc.stop(now + duration);
     }
 
+    function speakText(text) {
+        if (!('speechSynthesis' in window)) return;
+        const utter = new SpeechSynthesisUtterance(text);
+        utter.rate = 0.95;
+        utter.pitch = 1;
+        utter.volume = 1;
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(utter);
+    }
+
+    function toggleJumboMode(on) {
+        state.jumboMode = !!on;
+        document.getElementById('toggle-jumbo').checked = state.jumboMode;
+        document.getElementById('jumbo-clock').style.display = state.jumboMode ? 'flex' : 'none';
+    }
+
+    function toggleWetMode(on) {
+        state.wetMode = !!on;
+        document.getElementById('toggle-wet').checked = state.wetMode;
+        document.getElementById('wet-layer').style.display = state.wetMode ? 'grid' : 'none';
+    }
+
+    async function requestWakeLock() {
+        if (!('wakeLock' in navigator)) {
+            document.getElementById('voice-status').innerText = 'Wake Lock not supported on this device/browser.';
+            document.getElementById('toggle-wakelock').checked = false;
+            return;
+        }
+
+        try {
+            state.wakeLock = await navigator.wakeLock.request('screen');
+            state.wakeLock.addEventListener('release', () => {
+                state.wakeLock = null;
+            });
+            document.getElementById('voice-status').innerText = 'Screen always-on enabled.';
+        } catch (err) {
+            document.getElementById('voice-status').innerText = `Wake Lock failed: ${err.message}`;
+            document.getElementById('toggle-wakelock').checked = false;
+        }
+    }
+
+    function releaseWakeLock() {
+        if (state.wakeLock) {
+            state.wakeLock.release();
+            state.wakeLock = null;
+        }
+    }
+
+    async function toggleWakeLock(on) {
+        if (on) {
+            await requestWakeLock();
+        } else {
+            releaseWakeLock();
+        }
+    }
+
+    function renderQuickLogGrid() {
+        const samples = ['0:55', '1:00', '1:05', '1:10', '1:15', '1:20', '1:25', '1:30'];
+        const grid = document.getElementById('quick-log-grid');
+        grid.innerHTML = '';
+
+        samples.forEach((time) => {
+            const button = document.createElement('button');
+            button.innerText = time;
+            button.onclick = () => {
+                state.selectedQuickTime = time;
+                [...grid.children].forEach(child => child.classList.remove('active'));
+                button.classList.add('active');
+            };
+            grid.appendChild(button);
+        });
+    }
+
+    function setRPE(value) {
+        state.rpe = parseInt(value, 10) || 5;
+        document.getElementById('rpe-value').innerText = state.rpe;
+    }
+
+    function saveFailPoint() {
+        const cycle = document.getElementById('fail-cycle').value;
+        const rep = parseInt(document.getElementById('fail-rep').value, 10);
+
+        if (!cycle || !rep) {
+            document.getElementById('fail-point-output').innerText = 'Select cycle and rep to log fail point.';
+            return;
+        }
+
+        state.failPoint = `Missed ${cycle} on rep ${rep}`;
+        document.getElementById('fail-point-output').innerText = `Saved: ${state.failPoint}. Next threshold set can be adjusted down.`;
+    }
+
+    function calculateCSS() {
+        const t400 = parseTimeToSeconds(document.getElementById('css-d400').value);
+        const t200 = parseTimeToSeconds(document.getElementById('css-d200').value);
+
+        if (!Number.isFinite(t400) || !Number.isFinite(t200) || t400 <= t200) {
+            document.getElementById('css-result').innerText = 'Enter valid times where 400m is slower than 200m.';
+            return;
+        }
+
+        const cssSecPer100 = (t400 - t200) / 2;
+        const target = formatTime(Math.round(cssSecPer100));
+        document.getElementById('css-result').innerText = `CSS pace: ${target} /100m. Use this to tighten future threshold intervals.`;
+    }
+
+    function toggleVoiceControl(on) {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        state.voiceActive = !!on;
+
+        if (!SpeechRecognition) {
+            document.getElementById('voice-status').innerText = 'Voice recognition not supported in this browser.';
+            document.getElementById('toggle-voice').checked = false;
+            return;
+        }
+
+        if (!state.voiceActive) {
+            if (state.recognition) {
+                state.recognition.onend = null;
+                state.recognition.stop();
+            }
+            document.getElementById('voice-status').innerText = 'Voice control off.';
+            return;
+        }
+
+        if (!state.recognition) {
+            state.recognition = new SpeechRecognition();
+            state.recognition.lang = 'en-US';
+            state.recognition.continuous = true;
+            state.recognition.interimResults = false;
+
+            state.recognition.onresult = (event) => {
+                const result = event.results[event.results.length - 1][0].transcript.toLowerCase().trim();
+                handleVoiceCommand(result);
+            };
+
+            state.recognition.onerror = (event) => {
+                document.getElementById('voice-status').innerText = `Voice error: ${event.error}`;
+            };
+
+            state.recognition.onend = () => {
+                if (state.voiceActive) {
+                    try { state.recognition.start(); } catch (err) { }
+                }
+            };
+        }
+
+        try {
+            state.recognition.start();
+            document.getElementById('voice-status').innerText = 'Voice control listening...';
+        } catch (err) {
+            document.getElementById('voice-status').innerText = 'Voice control busy. Try toggling off/on.';
+        }
+    }
+
+    function handleVoiceCommand(text) {
+        document.getElementById('voice-status').innerText = `Heard: ${text}`;
+
+        if (text.includes('next set') || text.includes('next')) {
+            lapOrNext();
+            return;
+        }
+
+        if (text.includes('pause')) {
+            if (!state.isPaused) togglePause();
+            return;
+        }
+
+        if (text.includes('resume')) {
+            if (state.isPaused) togglePause();
+            return;
+        }
+
+        if (text.includes('log')) {
+            const match = text.match(/(\d+[: ]\d+)/);
+            if (match) {
+                const cleaned = match[1].replace(' ', ':');
+                state.selectedQuickTime = cleaned;
+                document.getElementById('voice-status').innerText = `Logged time ${cleaned}`;
+            }
+            return;
+        }
+
+        if (text.includes('rpe')) {
+            const match = text.match(/rpe\s*(\d+)/);
+            if (match) {
+                const value = Math.min(10, Math.max(1, parseInt(match[1], 10)));
+                document.getElementById('rpe-slider').value = value;
+                setRPE(value);
+                document.getElementById('voice-status').innerText = `RPE set to ${value}`;
+            }
+        }
+    }
 </script>
 </body>
 </html>
