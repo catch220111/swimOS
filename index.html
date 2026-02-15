@@ -688,133 +688,146 @@
                 <div style="font-size:3rem; margin-bottom:10px;">🏊</div>
                 <h3 style="margin-bottom:8px;">Log & Track</h3>
                 <p class="muted" style="margin-bottom:24px;">Upload your workout CSV to update analytics.</p>
-                <div style="display:grid; gap:12px;">
-                    <button class="btn btn-primary" onclick="openLogModal(null)">Log Past Workout (CSV Upload)</button>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                    <!-- Option 1: Log Past -->
+                    <button class="btn"
+                        style="background:#2C2C2E; border:1px solid #3A3A3C; height:auto; padding:16px; display:flex; flex-direction:column; align-items:center; gap:8px;"
+                        onclick="openLogModal(null)">
+                        <span style="font-size:1.5rem;">📅</span>
+                        <span style="font-weight:600;">Log Past Workout</span>
+                        <span style="font-size:0.75rem; color:#888;">Upload CSV to History</span>
+                    </button>
 
-                    <div style="margin-top:8px;">
-                        <button class="btn" style="background:transparent; color:#666; font-size:0.8rem;"
-                            onclick="document.getElementById('csv-upload').click()">Start Live Session (Legacy)</button>
-                    </div>
-
-                    <input type="file" id="csv-upload" style="display:none;" accept=".csv"
-                        onchange="handleFileUpload(this)">
-                    <button id="btn-resume" class="btn"
-                        style="display:none; background:rgba(48, 209, 88, 0.15); color:var(--success);"
-                        onclick="resumeWorkout()">Resume Last Session</button>
+                    <!-- Option 2: Live Workout -->
+                    <button class="btn"
+                        style="background:var(--accent); color:#000; height:auto; padding:16px; display:flex; flex-direction:column; align-items:center; gap:8px;"
+                        onclick="document.getElementById('csv-upload').click()">
+                        <span style="font-size:1.5rem;">⏱️</span>
+                        <span style="font-weight:700;">Start Live Session</span>
+                        <span style="font-size:0.75rem; color:#000; opacity:0.7;">Upload CSV & Swim</span>
+                    </button>
                 </div>
-            </div>
 
-            <!-- CSS Calculator Card -->
-            <div class="card">
-                <h3>CSS Calculator</h3>
-                <div class="row" style="margin-bottom:12px;">
-                    <div class="grow">
-                        <label class="muted" style="font-size:0.8rem;">400m</label>
-                        <input id="css-d400" type="text" placeholder="5:40">
-                    </div>
-                    <div class="grow">
-                        <label class="muted" style="font-size:0.8rem;">200m</label>
-                        <input id="css-d200" type="text" placeholder="2:45">
-                    </div>
-                </div>
-                <button class="btn" onclick="calculateCSS()">Calculate Pace</button>
-                <div id="css-result" class="muted" style="margin-top:12px; font-weight:600;"></div>
+
+
+                <input type="file" id="csv-upload" style="display:none;" accept=".csv"
+                    onchange="handleFileUpload(this)">
+                <button id="btn-resume" class="btn"
+                    style="display:none; background:rgba(48, 209, 88, 0.15); color:var(--success);"
+                    onclick="resumeWorkout()">Resume Last Session</button>
             </div>
         </div>
 
-        <!-- Logs View -->
-        <div id="view-logs" class="view">
-            <h1>History</h1>
-            <h2>Progress & Analytics</h2>
-
-            <div class="row" style="margin-bottom:16px;">
-                <div style="background:#1c1c1e; border-radius:12px; padding:4px; display:flex; width:100%;">
-                    <button id="btn-tab-history" class="btn"
-                        style="flex:1; padding:10px; font-size:0.9rem; background:#3a3a3c; color:#fff;"
-                        onclick="switchLogTab('history')">History</button>
-                    <button id="btn-tab-analytics" class="btn"
-                        style="flex:1; padding:10px; font-size:0.9rem; background:transparent; color:#888;"
-                        onclick="switchLogTab('analytics')">Stats & Insights</button>
+        <!-- CSS Calculator Card -->
+        <div class="card">
+            <h3>CSS Calculator</h3>
+            <div class="row" style="margin-bottom:12px;">
+                <div class="grow">
+                    <label class="muted" style="font-size:0.8rem;">400m</label>
+                    <input id="css-d400" type="text" placeholder="5:40">
+                </div>
+                <div class="grow">
+                    <label class="muted" style="font-size:0.8rem;">200m</label>
+                    <input id="css-d200" type="text" placeholder="2:45">
                 </div>
             </div>
+            <button class="btn" onclick="calculateCSS()">Calculate Pace</button>
+            <div id="css-result" class="muted" style="margin-top:12px; font-weight:600;"></div>
+        </div>
+    </div>
 
-            <!-- HISTORY TAB -->
-            <div id="tab-history">
-                <div style="display:flex; gap:10px; margin-bottom:16px;">
-                    <button class="btn btn-primary" onclick="openLogModal(null)">+ Add Manually</button>
-                </div>
+    <!-- Logs View -->
+    <div id="view-logs" class="view">
+        <h1>History</h1>
+        <h2>Progress & Analytics</h2>
 
-                <div id="history-list" style="display:flex; flex-direction:column; gap:12px;"></div>
-                <button class="btn btn-danger" style="margin-top:24px;" onclick="clearHistory()">Clear All Logs</button>
-            </div>
-
-            <!-- ANALYTICS TAB -->
-            <div id="tab-analytics" style="display:none;">
-
-                <!-- Consistency Heatmap -->
-                <div class="glass-card">
-                    <h3>Consistency</h3>
-                    <div id="heatmap-container" class="heatmap-grid"></div>
-                    <div class="muted" style="font-size:0.75rem; margin-top:8px; text-align:right;">Last 6 Months →
-                    </div>
-                </div>
-
-                <!-- All-Time Bests (PBs) -->
-                <div class="glass-card">
-                    <h3 style="color:var(--warning);">🏆 Personal Bests</h3>
-                    <div class="stat-grid" id="pb-grid">
-                        <!-- Populated by JS -->
-                    </div>
-                </div>
-
-                <!-- Volume & Pace -->
-                <div class="glass-card">
-                    <h3>Volume & Pace Trend</h3>
-                    <div class="analytics-controls" id="analytics-controls" style="margin-bottom:12px;">
-                        <button class="analytics-chip active" data-days="30"
-                            onclick="setAnalyticsPeriod(30)">30D</button>
-                        <button class="analytics-chip" data-days="90" onclick="setAnalyticsPeriod(90)">90D</button>
-                        <button class="analytics-chip" data-days="365" onclick="setAnalyticsPeriod(365)">1Y</button>
-                        <button class="analytics-chip" data-days="all" onclick="setAnalyticsPeriod('all')">ALL</button>
-                    </div>
-
-                    <div class="stat-grid">
-                        <div class="stat-item">
-                            <div class="stat-lbl">Total Dist</div>
-                            <div class="stat-val" id="metric-volume">0m</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-lbl">Avg Pace</div>
-                            <div class="stat-val" id="metric-pace">--:--</div>
-                        </div>
-                    </div>
-
-                    <div class="chart-wrapper" id="chart-volume-pace">
-                        <!-- SVG Chart -->
-                    </div>
-                </div>
-
-                <!-- Intensity Distribution -->
-                <div class="glass-card">
-                    <h3>Intensity (RPE)</h3>
-                    <div class="chart-wrapper" id="chart-rpe" style="height:140px;"></div>
-                </div>
-
-                <!-- Stroke Breakdown -->
-                <div class="glass-card">
-                    <h3>Stroke Mix</h3>
-                    <div class="chart-container" style="justify-content:center;">
-                        <div class="chart-box" style="background:transparent; border:none; box-shadow:none;">
-                            <div class="pie-chart" id="chart-strokes">
-                                <div class="pie-hole" style="background:#131313;"></div>
-                            </div>
-                            <div class="legend" id="legend-strokes"></div>
-                        </div>
-                    </div>
-                </div>
-
+        <div class="row" style="margin-bottom:16px;">
+            <div style="background:#1c1c1e; border-radius:12px; padding:4px; display:flex; width:100%;">
+                <button id="btn-tab-history" class="btn"
+                    style="flex:1; padding:10px; font-size:0.9rem; background:#3a3a3c; color:#fff;"
+                    onclick="switchLogTab('history')">History</button>
+                <button id="btn-tab-analytics" class="btn"
+                    style="flex:1; padding:10px; font-size:0.9rem; background:transparent; color:#888;"
+                    onclick="switchLogTab('analytics')">Stats & Insights</button>
             </div>
         </div>
+
+        <!-- HISTORY TAB -->
+        <div id="tab-history">
+            <div style="display:flex; gap:10px; margin-bottom:16px;">
+                <button class="btn btn-primary" onclick="openLogModal(null)">+ Add Manually</button>
+            </div>
+
+            <div id="history-list" style="display:flex; flex-direction:column; gap:12px;"></div>
+            <button class="btn btn-danger" style="margin-top:24px;" onclick="clearHistory()">Clear All Logs</button>
+        </div>
+
+        <!-- ANALYTICS TAB -->
+        <div id="tab-analytics" style="display:none;">
+
+            <!-- Consistency Heatmap -->
+            <div class="glass-card">
+                <h3>Consistency</h3>
+                <div id="heatmap-container" class="heatmap-grid"></div>
+                <div class="muted" style="font-size:0.75rem; margin-top:8px; text-align:right;">Last 6 Months →
+                </div>
+            </div>
+
+            <!-- All-Time Bests (PBs) -->
+            <div class="glass-card">
+                <h3 style="color:var(--warning);">🏆 Personal Bests</h3>
+                <div class="stat-grid" id="pb-grid">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+            <!-- Volume & Pace -->
+            <div class="glass-card">
+                <h3>Volume & Pace Trend</h3>
+                <div class="analytics-controls" id="analytics-controls" style="margin-bottom:12px;">
+                    <button class="analytics-chip active" data-days="30" onclick="setAnalyticsPeriod(30)">30D</button>
+                    <button class="analytics-chip" data-days="90" onclick="setAnalyticsPeriod(90)">90D</button>
+                    <button class="analytics-chip" data-days="365" onclick="setAnalyticsPeriod(365)">1Y</button>
+                    <button class="analytics-chip" data-days="all" onclick="setAnalyticsPeriod('all')">ALL</button>
+                </div>
+
+                <div class="stat-grid">
+                    <div class="stat-item">
+                        <div class="stat-lbl">Total Dist</div>
+                        <div class="stat-val" id="metric-volume">0m</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-lbl">Avg Pace</div>
+                        <div class="stat-val" id="metric-pace">--:--</div>
+                    </div>
+                </div>
+
+                <div class="chart-wrapper" id="chart-volume-pace">
+                    <!-- SVG Chart -->
+                </div>
+            </div>
+
+            <!-- Intensity Distribution -->
+            <div class="glass-card">
+                <h3>Intensity (RPE)</h3>
+                <div class="chart-wrapper" id="chart-rpe" style="height:140px;"></div>
+            </div>
+
+            <!-- Stroke Breakdown -->
+            <div class="glass-card">
+                <h3>Stroke Mix</h3>
+                <div class="chart-container" style="justify-content:center;">
+                    <div class="chart-box" style="background:transparent; border:none; box-shadow:none;">
+                        <div class="pie-chart" id="chart-strokes">
+                            <div class="pie-hole" style="background:#131313;"></div>
+                        </div>
+                        <div class="legend" id="legend-strokes"></div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
     </div>
 
     <div id="modal-log"
