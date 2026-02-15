@@ -89,12 +89,8 @@ export default function WorkoutView({ workoutPlan, onExit }) {
             setCurrentIndex(nextIdx);
             renderStep(nextIdx);
 
-            // Auto-start next if it's a rest or configured (simplifying to auto-start rest for now)
-            // In React version we can improve this logic later
-            const nextStep = workoutPlan.plan[nextIdx];
-            if (nextStep.mode === 'rest') {
-                setTimeout(() => startTimer(), 1000);
-            }
+            // Auto-start removed per user request. 
+            // Users must click "Start Rest" manually.
         } else {
             finishWorkout();
         }
