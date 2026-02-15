@@ -1088,14 +1088,22 @@
 
             const reader = new FileReader();
             reader.onload = function (e) {
-                parseCSV(e.target.result);
+                const result = parseWorkoutCSV(e.target.result);
+                if (result) {
+                    state.workoutPlan = result.plan;
+                    state.totalDist = result.total;
+                    localStorage.setItem('currentWorkoutPlan', JSON.stringify(state.workoutPlan));
+                    startWorkoutMode();
+                } else {
+                    alert('Error: Invalid CSV format.');
+                }
             };
             reader.readAsText(file);
         }
 
-        function parseCSV(csvText) {
+        function parseWorkoutCSV(csvText) {
             let newPlan = [];
-            let newTotal = 0;
+            let newTotal = 0; // Pure variable, not state
             const lines = csvText.split('\n');
 
             for (let i = 1; i < lines.length; i++) {
@@ -1126,12 +1134,9 @@
             }
 
             if (newPlan.length > 0) {
-                state.workoutPlan = newPlan;
-                state.totalDist = newTotal;
-                localStorage.setItem('currentWorkoutPlan', JSON.stringify(state.workoutPlan));
-                startWorkoutMode();
+                return { plan: newPlan, total: newTotal };
             } else {
-                alert('Error: Invalid CSV format.');
+                return null;
             }
         }
 
@@ -1496,18 +1501,15 @@
             const reader = new FileReader();
             reader.onload = function (e) {
                 const text = e.target.result;
-                const workoutPlan = parseCSV(text);
+                const result = parseWorkoutCSV(text);
 
-                if (workoutPlan.length === 0) {
+                if (!result) {
                     alert('Could not parse workout from CSV.');
                     return;
                 }
-
+                const workoutPlan = result.plan;
                 // Calculate stats
-                let totalDist = 0;
-                workoutPlan.forEach(step => {
-                    totalDist += (step.dist || 0);
-                });
+                let totalDist = result.total;
 
                 const breakdown = analyzeWorkout(workoutPlan, workoutPlan.length);
 
