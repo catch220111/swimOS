@@ -150,8 +150,17 @@ export default function WorkoutView({ workoutPlan, onExit }) {
     let mainButtonText = "START";
     if (timerFinished) {
         // We are waiting to advance
-        if (isRest) mainButtonText = "START INTERVAL"; // Rest done -> Start Swim
-        else mainButtonText = nextIsRest ? "START REST" : "START NEXT INTERVAL"; // Swim done -> Start Rest
+        if (isRest) {
+            mainButtonText = "START INTERVAL"; // Rest done -> Start Swim
+        } else {
+            // Swim done
+            if (nextIsRest) {
+                if (nextStep.time === 0) mainButtonText = "NEXT";
+                else mainButtonText = "START REST";
+            } else {
+                mainButtonText = "START NEXT INTERVAL";
+            }
+        }
     } else {
         // We are waiting to start CURRENT step
         mainButtonText = isRest ? "START REST" : "START INTERVAL";
