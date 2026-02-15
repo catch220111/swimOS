@@ -602,10 +602,6 @@
 
         <div style="display:flex; gap:10px; margin-bottom:10px;">
             <button class="btn btn-primary" onclick="openLogModal(null)">+ Add Past Workout</button>
-            <button class="btn" style="background:#2d2d2d;"
-                onclick="document.getElementById('history-csv-upload').click()">+ Import CSV</button>
-            <input type="file" id="history-csv-upload" class="file-input" accept=".csv"
-                onchange="handleHistoryImport(this)">
         </div>
 
         <div class="panel">
@@ -700,7 +696,16 @@
             <input id="log-time" type="text" style="margin-bottom:12px;" placeholder="e.g. 1:30">
 
             <label class="muted" style="display:block; margin-bottom:6px;">RPE (1-10)</label>
-            <input id="log-rpe" type="number" min="1" max="10" style="margin-bottom:20px;">
+            <input id="log-rpe" type="number" min="1" max="10" style="margin-bottom:12px;">
+
+            <div style="border-top:1px solid #333; padding-top:12px; margin-bottom:12px;">
+                <label class="muted" style="display:block; margin-bottom:6px;">Upgrade with CSV</label>
+                <button class="btn" style="background:#2d2d2d; font-size:0.8rem; padding:6px;"
+                    onclick="document.getElementById('modal-csv-upload').click()">Select CSV File</button>
+                <input type="file" id="modal-csv-upload" class="file-input" accept=".csv"
+                    onchange="handleModalCsvUpload(this)">
+                <div id="modal-csv-status" class="muted" style="font-size:0.8rem; margin-top:4px;"></div>
+            </div>
 
             <div class="row">
                 <button class="btn" style="background:#333;" onclick="closeLogModal()">Cancel</button>
@@ -1220,9 +1225,11 @@
             });
         }
 
-        // -- CSV History Import --
 
-        function handleHistoryImport(input) {
+
+        // -- CSV Log Upgrade --
+
+        function handleModalCsvUpload(input) {
             const file = input.files[0];
             if (!file) return;
 
@@ -1244,13 +1251,15 @@
 
                 const breakdown = analyzeWorkout(workoutPlan, workoutPlan.length);
 
-                // Open modal with pre-filled data
-                openLogModal(null, {
-                    dist: totalDist,
-                    breakdown: breakdown
-                });
+                // Update Modal State
+                document.getElementById('log-dist').value = totalDist;
+                pendingBreakdown = breakdown;
 
-                // Reset input
+                // Visual Feedback
+                const status = document.getElementById('modal-csv-status');
+                status.innerText = `Loaded: ${totalDist}m (${workoutPlan.length} steps)`;
+                status.style.color = '#a5d6a7';
+
                 input.value = '';
             };
             reader.readAsText(file);
@@ -1277,6 +1286,7 @@
             pendingBreakdown = null;
             const modal = document.getElementById('modal-log');
             const title = document.getElementById('modal-log-title');
+            document.getElementById('modal-csv-status').innerText = '';
 
             if (index === null) {
                 // Add Mode
@@ -1367,6 +1377,9 @@
                     history[editingIndex].rpe = isNaN(rpeVal) ? '-' : rpeVal;
                     history[editingIndex].date = dateStr;
                     history[editingIndex].timestamp = timestamp;
+                    if (pendingBreakdown) {
+                        history[editingIndex].breakdown = pendingBreakdown;
+                    }
                 }
             }
 
