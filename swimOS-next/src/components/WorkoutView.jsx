@@ -26,10 +26,13 @@ export default function WorkoutView({ workoutPlan, onExit }) {
         return () => clearInterval(intervalRef.current);
     }, [workoutPlan]);
 
+    const [elapsedTime, setElapsedTime] = useState(0);
+
     const renderStep = (index) => {
         if (!workoutPlan || index >= workoutPlan.plan.length) return;
         const step = workoutPlan.plan[index];
         setTimeLeft(step.time);
+        setElapsedTime(0);
         setTimerActive(false);
         setIsPaused(false);
         clearInterval(intervalRef.current);
@@ -48,22 +51,31 @@ export default function WorkoutView({ workoutPlan, onExit }) {
         setTimerActive(true);
         setIsPaused(false);
 
+        const currentStep = workoutPlan.plan[currentIndex];
+        const isManual = currentStep.time === 0;
+
         intervalRef.current = setInterval(() => {
-            setTimeLeft((prev) => {
-                if (prev <= 1) {
-                    // Timer finished
-                    clearInterval(intervalRef.current);
-                    completeStep();
-                    return 0;
-                }
+            if (isManual) {
+                // Count UP
+                setElapsedTime(prev => prev + 1);
+            } else {
+                // Count DOWN
+                setTimeLeft((prev) => {
+                    if (prev <= 1) {
+                        // Timer finished
+                        clearInterval(intervalRef.current);
+                        completeStep();
+                        return 0;
+                    }
 
-                // Beep logic
-                if (prev <= 4 && prev > 1) {
-                    beep(1200, 0.12, 'square', 0.24);
-                }
+                    // Beep logic (only for countdowns)
+                    if (prev <= 4 && prev > 1) {
+                        beep(1200, 0.12, 'square', 0.24);
+                    }
 
-                return prev - 1;
-            });
+                    return prev - 1;
+                });
+            }
         }, 1000);
     };
 
@@ -140,7 +152,7 @@ export default function WorkoutView({ workoutPlan, onExit }) {
                 <div style={{ fontSize: '1.2rem', marginBottom: '20px' }}>{currentStep.desc}</div>
 
                 <div style={{ fontSize: '5rem', fontWeight: 900, fontFamily: 'monospace', color: isRest ? 'var(--danger)' : 'var(--text-main)' }}>
-                    {formatTime(timeLeft)}
+                    {currentStep.time === 0 ? formatTime(elapsedTime) : formatTime(timeLeft)}
                 </div>
 
                 <div style={{
