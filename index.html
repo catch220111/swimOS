@@ -821,149 +821,169 @@
             <label class="muted" style="display:block; margin-bottom:6px;">Date & Time</label>
             <input id="log-date" type="datetime-local" style="margin-bottom:12px;">
 
-            <label class="muted" style="display:block; margin-bottom:6px;">Distance (m)</label>
-            <input id="log-dist" type="number" style="margin-bottom:12px;">
+            <!-- Manual Fields Container (Hidden in Restricted Mode) -->
+            <div id="manual-fields">
+                <label class="muted" style="display:block; margin-bottom:6px;">Distance (m)</label>
+                <input id="log-dist" type="number" style="margin-bottom:12px;" disabled>
 
-            <label class="muted" style="display:block; margin-bottom:6px;">Result</label>
-            <input id="log-time" type="text" style="margin-bottom:12px;" placeholder="Time (e.g. 1:30) or Note">
+                <label class="muted" style="display:block; margin-bottom:6px;">Result</label>
+                <input id="log-time" type="text" style="margin-bottom:12px;" placeholder="Time (e.g. 1:30)" disabled>
 
-            <div class="row">
-                <div class="grow">
-                    <label class="muted" style="display:block; margin-bottom:6px;">Stroke</label>
-                    <select id="log-stroke"
-                        style="margin-bottom:12px; width:100%; padding:10px; background:#333; color:#fff; border:none; border-radius:8px;">
-                        <option value="mix">Mix & Match</option>
-                        <option value="free">Freestyle</option>
-                        <option value="back">Backstroke</option>
-                        <option value="breast">Breaststroke</option>
-                        <option value="fly">Butterfly</option>
-                        <option value="im">IM</option>
-                    </select>
+                <div class="row">
+                    <div class="grow">
+                        <label class="muted" style="display:block; margin-bottom:6px;">Stroke</label>
+                        <select id="log-stroke"
+                            style="margin-bottom:12px; width:100%; padding:10px; background:#333; color:#fff; border:none; border-radius:8px;"
+                            disabled>
+                            <option value="mix">Mix & Match</option>
+                            <option value="free">Freestyle</option>
+                            <option value="back">Backstroke</option>
+                            <option value="breast">Breaststroke</option>
+                            <option value="fly">Butterfly</option>
+                            <option value="im">IM</option>
+                        </select>
+                    </div>
+                    <div class="grow">
+                        <label class="muted" style="display:block; margin-bottom:6px;">Type</label>
+                        <select id="log-type"
+                            style="margin-bottom:12px; width:100%; padding:10px; background:#333; color:#fff; border:none; border-radius:8px;"
+                            disabled>
+                            <option value="swim">Swim</option>
+                            <option value="kick">Kick</option>
+                            <option value="pull">Pull</option>
+                            <option value="drill">Drill</option>
+                        </select>
+                    </div>
                 </div>
-                <div class="grow">
-                    <label class="muted" style="display:block; margin-bottom:6px;">Type</label>
-                    <select id="log-type"
-                        style="margin-bottom:12px; width:100%; padding:10px; background:#333; color:#fff; border:none; border-radius:8px;">
-                        <option value="swim">Swim</option>
-                        <option value="kick">Kick</option>
-                        <option value="pull">Pull</option>
-                        <option value="drill">Drill</option>
-                    </select>
-                </div>
+            </div>
+
+            <!-- CSV Upload Section (Prominent) -->
+            <div id="section-csv-upload"
+                style="background:#222; padding:15px; border-radius:12px; border:1px dashed #444; margin-bottom:16px; text-align:center;">
+                <div style="font-size:2rem; margin-bottom:8px;">📂</div>
+                <div style="font-weight:700; color:#fff; margin-bottom:4px;">Upload Workout CSV</div>
+                <div style="font-size:0.8rem; color:#888; margin-bottom:12px;">Required for accurate breakdown</div>
+                <button class="btn btn-primary" onclick="document.getElementById('modal-csv-upload').click()">Select
+                    File</button>
+                <input type="file" id="modal-csv-upload" class="file-input" accept=".csv"
+                    onchange="handleModalCsvUpload(this)">
+                <div id="modal-csv-status" style="margin-top:10px;"></div>
+            </div>
+
+            <!-- Self Feedback Section -->
+            <div id="section-feedback" style="display:none; margin-bottom:12px;">
+                <label class="muted" style="display:block; margin-bottom:6px;">Self Feedback & Notes</label>
+                <textarea id="log-feedback" rows="3"
+                    style="width:100%; padding:10px; background:#333; color:#fff; border:none; border-radius:8px;"
+                    placeholder="How did it feel? What can be improved?"></textarea>
             </div>
 
             <label class="muted" style="display:block; margin-bottom:6px;">RPE (1-10)</label>
             <input id="log-rpe" type="number" min="1" max="10" style="margin-bottom:12px;">
 
-            <div style="border-top:1px solid #333; padding-top:12px; margin-bottom:12px;">
-                <label class="muted" style="display:block; margin-bottom:6px;">Upgrade with CSV</label>
-                <button class="btn" style="background:#2d2d2d; font-size:0.8rem; padding:6px;"
-                    onclick="document.getElementById('modal-csv-upload').click()">Select CSV File</button>
-                <input type="file" id="modal-csv-upload" class="file-input" accept=".csv"
-                    onchange="handleModalCsvUpload(this)">
-                <div id="modal-csv-status" class="muted" style="font-size:0.8rem; margin-top:4px;"></div>
-            </div>
+            <!-- Empty div to replace old CSV section -->
+            <div style="display:none;">
 
-            <div class="row">
-                <button class="btn" style="background:#333;" onclick="closeLogModal()">Cancel</button>
-                <button class="btn btn-success" onclick="saveLogEntry()">Save</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="view-workout" class="view">
-        <div id="workout-topbar">
-            <div id="progress-text">0 / 0m</div>
-            <button class="btn btn-danger" style="width:auto; margin:0; padding:10px 12px;" <button class="btn"
-                style="width:auto; margin:0; padding:8px 12px; font-size:0.8rem; background:transparent; color:var(--danger);"
-                onclick="quitWorkout(); switchView('view-dashboard');">QUIT</button>
-        </div>
-
-        <div id="active-card">
-            <div style="color:var(--text-muted); text-transform:uppercase; font-size:0.88rem; font-weight:700; letter-spacing:1px;"
-                id="card-section">SECTION</div>
-            <div class="dist-display" id="card-dist">0m</div>
-            <div style="font-size:1.45rem; font-weight:900; margin-bottom:6px;" id="card-title">Ready?</div>
-            <div class="timer-display" id="main-timer">00:00</div>
-            <div id="phase-pill">GO</div>
-            <div class="desc-text" id="card-desc"></div>
-            <div class="next-up" id="card-next"></div>
-        </div>
-
-        <div class="row" style="justify-content:center; margin-top:20px;">
-            <details style="width:100%; border:1px solid #333; border-radius:12px; background:#111; padding:10px;">
-                <summary style="font-weight:700; color:#888; cursor:pointer;">Settings & Controls</summary>
-                <div id="controls-grid" style="margin-top:12px;">
-                    <label class="toggle-item">Wet Mode <input id="toggle-wet" type="checkbox"
-                            onchange="toggleWetMode(this.checked)"></label>
-                    <label class="toggle-item">Auto Loop <input id="toggle-autoloop" type="checkbox" checked
-                            onchange="state.autoLoop=this.checked"></label>
-                    <label class="toggle-item">Always On <input id="toggle-wakelock" type="checkbox"
-                            onchange="toggleWakeLock(this.checked)"></label>
-                    <label class="toggle-item">Voice Control <input id="toggle-voice" type="checkbox"
-                            onchange="toggleVoiceControl(this.checked)"></label>
-                    <label class="toggle-item">Planned Complete <input id="toggle-planned" type="checkbox" checked
-                            onchange="state.completedAsPlanned=this.checked"></label>
-                </div>
-            </details>
-        </div>
-
-        <div class="panel">
-            <h3 class="panel-title">Whistle Start</h3>
-            <div class="row-wrap">
-                <button class="tag-btn" onclick="playWhistleStart()">Take Your Marks... BEEP</button>
-                <button class="tag-btn" onclick="runVoiceHint()">Show Voice Commands</button>
-            </div>
-            <div id="voice-status" class="voice-status"></div>
-        </div>
-
-        <button class="btn btn-primary" id="action-btn" onclick="handleAction()">START</button>
-
-        <div class="panel">
-            <h3 class="panel-title">Quick Log</h3>
-            <div id="quick-log-grid" class="quick-grid"></div>
-            <div class="row" style="margin-top:10px;">
-                <div class="grow">
-                    <label class="muted" for="rpe-slider">RPE (1-10): <span id="rpe-value">5</span></label>
-                    <input id="rpe-slider" type="range" min="1" max="10" value="5" oninput="setRPE(this.value)">
+                <div class="row">
+                    <button class="btn" style="background:#333;" onclick="closeLogModal()">Cancel</button>
+                    <button class="btn btn-success" onclick="saveLogEntry()">Save</button>
                 </div>
             </div>
         </div>
 
-        <div class="panel">
-            <h3 class="panel-title">Fail Point Logging</h3>
-            <div class="row">
-                <select id="fail-cycle">
-                    <option value="">Missed cycle</option>
-                    <option>1:05</option>
-                    <option>1:10</option>
-                    <option>1:15</option>
-                    <option>1:20</option>
-                    <option>1:30</option>
-                </select>
-                <input id="fail-rep" type="number" min="1" placeholder="Rep #">
-                <button class="btn" style="width:auto; margin:0;" onclick="saveFailPoint()">Log Fail</button>
+        <div id="view-workout" class="view">
+            <div id="workout-topbar">
+                <div id="progress-text">0 / 0m</div>
+                <button class="btn btn-danger" style="width:auto; margin:0; padding:10px 12px;" <button class="btn"
+                    style="width:auto; margin:0; padding:8px 12px; font-size:0.8rem; background:transparent; color:var(--danger);"
+                    onclick="quitWorkout(); switchView('view-dashboard');">QUIT</button>
             </div>
-            <div id="fail-point-output" class="muted"></div>
+
+            <div id="active-card">
+                <div style="color:var(--text-muted); text-transform:uppercase; font-size:0.88rem; font-weight:700; letter-spacing:1px;"
+                    id="card-section">SECTION</div>
+                <div class="dist-display" id="card-dist">0m</div>
+                <div style="font-size:1.45rem; font-weight:900; margin-bottom:6px;" id="card-title">Ready?</div>
+                <div class="timer-display" id="main-timer">00:00</div>
+                <div id="phase-pill">GO</div>
+                <div class="desc-text" id="card-desc"></div>
+                <div class="next-up" id="card-next"></div>
+            </div>
+
+            <div class="row" style="justify-content:center; margin-top:20px;">
+                <details style="width:100%; border:1px solid #333; border-radius:12px; background:#111; padding:10px;">
+                    <summary style="font-weight:700; color:#888; cursor:pointer;">Settings & Controls</summary>
+                    <div id="controls-grid" style="margin-top:12px;">
+                        <label class="toggle-item">Wet Mode <input id="toggle-wet" type="checkbox"
+                                onchange="toggleWetMode(this.checked)"></label>
+                        <label class="toggle-item">Auto Loop <input id="toggle-autoloop" type="checkbox" checked
+                                onchange="state.autoLoop=this.checked"></label>
+                        <label class="toggle-item">Always On <input id="toggle-wakelock" type="checkbox"
+                                onchange="toggleWakeLock(this.checked)"></label>
+                        <label class="toggle-item">Voice Control <input id="toggle-voice" type="checkbox"
+                                onchange="toggleVoiceControl(this.checked)"></label>
+                        <label class="toggle-item">Planned Complete <input id="toggle-planned" type="checkbox" checked
+                                onchange="state.completedAsPlanned=this.checked"></label>
+                    </div>
+                </details>
+            </div>
+
+            <div class="panel">
+                <h3 class="panel-title">Whistle Start</h3>
+                <div class="row-wrap">
+                    <button class="tag-btn" onclick="playWhistleStart()">Take Your Marks... BEEP</button>
+                    <button class="tag-btn" onclick="runVoiceHint()">Show Voice Commands</button>
+                </div>
+                <div id="voice-status" class="voice-status"></div>
+            </div>
+
+            <button class="btn btn-primary" id="action-btn" onclick="handleAction()">START</button>
+
+            <div class="panel">
+                <h3 class="panel-title">Quick Log</h3>
+                <div id="quick-log-grid" class="quick-grid"></div>
+                <div class="row" style="margin-top:10px;">
+                    <div class="grow">
+                        <label class="muted" for="rpe-slider">RPE (1-10): <span id="rpe-value">5</span></label>
+                        <input id="rpe-slider" type="range" min="1" max="10" value="5" oninput="setRPE(this.value)">
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h3 class="panel-title">Fail Point Logging</h3>
+                <div class="row">
+                    <select id="fail-cycle">
+                        <option value="">Missed cycle</option>
+                        <option>1:05</option>
+                        <option>1:10</option>
+                        <option>1:15</option>
+                        <option>1:20</option>
+                        <option>1:30</option>
+                    </select>
+                    <input id="fail-rep" type="number" min="1" placeholder="Rep #">
+                    <button class="btn" style="width:auto; margin:0;" onclick="saveFailPoint()">Log Fail</button>
+                </div>
+                <div id="fail-point-output" class="muted"></div>
+            </div>
         </div>
-    </div>
 
-    <div id="flash-overlay">
-        <div class="flash-text">GO!</div>
-    </div>
+        <div id="flash-overlay">
+            <div class="flash-text">GO!</div>
+        </div>
 
-    <div id="jumbo-clock">
-        <div id="jumbo-time">0:00</div>
-        <div id="jumbo-meta">READY</div>
-        <button class="btn" style="max-width:280px; margin-top:18px;" onclick="toggleJumboMode(false)">Exit
-            Jumbo</button>
-    </div>
+        <div id="jumbo-clock">
+            <div id="jumbo-time">0:00</div>
+            <div id="jumbo-meta">READY</div>
+            <button class="btn" style="max-width:280px; margin-top:18px;" onclick="toggleJumboMode(false)">Exit
+                Jumbo</button>
+        </div>
 
-    <div id="wet-layer">
-        <button id="wet-exit" onclick="toggleWetMode(false)">Exit Wet</button>
-        <button id="wet-pause" class="wet-zone" onclick="togglePause()">PAUSE</button>
-        <button id="wet-lap" class="wet-zone" onclick="lapOrNext()">LAP / NEXT</button>
-    </div>
+        <div id="wet-layer">
+            <button id="wet-exit" onclick="toggleWetMode(false)">Exit Wet</button>
+            <button id="wet-pause" class="wet-zone" onclick="togglePause()">PAUSE</button>
+            <button id="wet-lap" class="wet-zone" onclick="lapOrNext()">LAP / NEXT</button>
+        </div>
 
     </div>
 
