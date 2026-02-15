@@ -824,8 +824,33 @@
             <label class="muted" style="display:block; margin-bottom:6px;">Distance (m)</label>
             <input id="log-dist" type="number" style="margin-bottom:12px;">
 
-            <label class="muted" style="display:block; margin-bottom:6px;">Quick Time (optional)</label>
-            <input id="log-time" type="text" style="margin-bottom:12px;" placeholder="e.g. 1:30">
+            <label class="muted" style="display:block; margin-bottom:6px;">Result</label>
+            <input id="log-time" type="text" style="margin-bottom:12px;" placeholder="Time (e.g. 1:30) or Note">
+
+            <div class="row">
+                <div class="grow">
+                    <label class="muted" style="display:block; margin-bottom:6px;">Stroke</label>
+                    <select id="log-stroke"
+                        style="margin-bottom:12px; width:100%; padding:10px; background:#333; color:#fff; border:none; border-radius:8px;">
+                        <option value="mix">Mix & Match</option>
+                        <option value="free">Freestyle</option>
+                        <option value="back">Backstroke</option>
+                        <option value="breast">Breaststroke</option>
+                        <option value="fly">Butterfly</option>
+                        <option value="im">IM</option>
+                    </select>
+                </div>
+                <div class="grow">
+                    <label class="muted" style="display:block; margin-bottom:6px;">Type</label>
+                    <select id="log-type"
+                        style="margin-bottom:12px; width:100%; padding:10px; background:#333; color:#fff; border:none; border-radius:8px;">
+                        <option value="swim">Swim</option>
+                        <option value="kick">Kick</option>
+                        <option value="pull">Pull</option>
+                        <option value="drill">Drill</option>
+                    </select>
+                </div>
+            </div>
 
             <label class="muted" style="display:block; margin-bottom:6px;">RPE (1-10)</label>
             <input id="log-rpe" type="number" min="1" max="10" style="margin-bottom:12px;">
@@ -1502,6 +1527,9 @@
                 document.getElementById('log-dist').value = preFill ? preFill.dist : '';
                 document.getElementById('log-time').value = '';
                 document.getElementById('log-rpe').value = 5;
+                // Default values for new log
+                if (document.getElementById('log-stroke')) document.getElementById('log-stroke').value = 'mix';
+                if (document.getElementById('log-type')) document.getElementById('log-type').value = 'swim';
 
                 if (preFill && preFill.breakdown) {
                     pendingBreakdown = preFill.breakdown;
@@ -1520,6 +1548,18 @@
                 document.getElementById('log-dist').value = log.dist;
                 document.getElementById('log-time').value = log.quickTime === '-' ? '' : log.quickTime;
                 document.getElementById('log-rpe').value = log.rpe;
+
+                // Try to populate dropdowns from breakdown
+                let s = 'mix';
+                let t = 'swim';
+                if (log.breakdown) {
+                    const strokes = log.breakdown.strokes || {};
+                    const types = log.breakdown.types || {};
+                    for (let k in strokes) { if (strokes[k] == log.dist) s = k; }
+                    for (let k in types) { if (types[k] == log.dist) t = k; }
+                }
+                if (document.getElementById('log-stroke')) document.getElementById('log-stroke').value = s;
+                if (document.getElementById('log-type')) document.getElementById('log-type').value = t;
 
                 let ts = log.timestamp;
                 if (!ts && log.date) ts = Date.parse(log.date);
@@ -1545,6 +1585,8 @@
             const timeVal = document.getElementById('log-time').value;
             const rpeVal = parseInt(document.getElementById('log-rpe').value, 10);
             const dateVal = document.getElementById('log-date').value;
+            const strokeVal = document.getElementById('log-stroke') ? document.getElementById('log-stroke').value : 'mix';
+            const typeVal = document.getElementById('log-type') ? document.getElementById('log-type').value : 'swim';
 
             if (isNaN(distVal) || distVal <= 0) {
                 alert('Please enter a valid distance.');
@@ -1562,6 +1604,21 @@
 
             const history = JSON.parse(localStorage.getItem('swimLogs') || '[]');
 
+            // Construct Breakdown
+            const manualBreakdown = {
+                strokes: { free: 0, back: 0, breast: 0, fly: 0, im: 0, mix: 0 },
+                types: { swim: 0, kick: 0, pull: 0, drill: 0 }
+            };
+
+            if (manualBreakdown.strokes.hasOwnProperty(strokeVal)) manualBreakdown.strokes[strokeVal] = distVal;
+            else manualBreakdown.strokes.mix = distVal;
+
+            if (manualBreakdown.types.hasOwnProperty(typeVal)) manualBreakdown.types[typeVal] = distVal;
+            else manualBreakdown.types.swim = distVal;
+
+            // Use pending breakdown (from CSV) if available, otherwise use manual selection
+            const finalBreakdown = pendingBreakdown || manualBreakdown;
+
             if (editingIndex === null) {
                 // Add new
                 const newLog = {
@@ -1574,7 +1631,7 @@
                     completedMode: 'manual',
                     failPoint: '-',
                     laps: 0,
-                    breakdown: pendingBreakdown || analyzeWorkout([{ desc: 'Free', dist: distVal }], 1) // Default or Imported
+                    breakdown: finalBreakdown
                 };
                 history.push(newLog);
             } else {
@@ -1585,9 +1642,7 @@
                     history[editingIndex].rpe = isNaN(rpeVal) ? '-' : rpeVal;
                     history[editingIndex].date = dateStr;
                     history[editingIndex].timestamp = timestamp;
-                    if (pendingBreakdown) {
-                        history[editingIndex].breakdown = pendingBreakdown;
-                    }
+                    history[editingIndex].breakdown = finalBreakdown;
                 }
             }
 
