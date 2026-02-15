@@ -826,8 +826,8 @@
             <label class="muted" style="display:block; margin-bottom:6px;">Date & Time</label>
             <input id="log-date" type="datetime-local" style="margin-bottom:12px;">
 
-            <!-- Manual Fields Container (Hidden in Restricted Mode) -->
-            <div id="manual-fields">
+            <!-- Manual Fields Container (Hidden Always for strict mode or just kept for logic but hidden) -->
+            <div id="manual-fields" style="display:none;">
                 <label class="muted" style="display:block; margin-bottom:6px;">Distance (m)</label>
                 <input id="log-dist" type="number" style="margin-bottom:12px;" disabled>
 
@@ -875,8 +875,8 @@
                 <div id="modal-csv-status" style="margin-top:10px;"></div>
             </div>
 
-            <!-- Self Feedback Section -->
-            <div id="section-feedback" style="display:none; margin-bottom:12px;">
+            <!-- Self Feedback Section REMOVED/HIDDEN -->
+            <div id="section-feedback" style="display:none;">
                 <label class="muted" style="display:block; margin-bottom:6px;">Self Feedback & Notes</label>
                 <textarea id="log-feedback" rows="3"
                     style="width:100%; padding:10px; background:#333; color:#fff; border:none; border-radius:8px;"
@@ -1516,19 +1516,17 @@
                 pendingBreakdown = breakdown;
 
                 // Visual Feedback
+                // Visual Feedback
                 const status = document.getElementById('modal-csv-status');
                 status.innerHTML = `
                     <div style="color:var(--success); font-weight:700; font-size:1.1rem; margin-bottom:8px;">
                         ✓ Loaded ${totalDist}m
                     </div>
-                    <div style="font-size:0.9rem; color:#ccc;">
-                        ${workoutPlan.length} steps parsed.
-                    </div>
                 `;
 
-                // Show Feedback Section
+                // Keep feedback section HIDDEN
                 if (document.getElementById('section-feedback')) {
-                    document.getElementById('section-feedback').style.display = 'block';
+                    document.getElementById('section-feedback').style.display = 'none';
                 }
 
                 input.value = '';
@@ -1570,10 +1568,10 @@
                 // Add Mode (CSV ONLY)
                 title.innerText = 'Log Past Workout (CSV Required)';
 
-                // Hide Manual Inputs initially
+                // Hide Manual Inputs initially (Always now)
                 if (manualFields) manualFields.style.display = 'none';
                 if (csvSection) csvSection.style.display = 'block';
-                if (feedbackSection) feedbackSection.style.display = 'none'; // Show after upload
+                if (feedbackSection) feedbackSection.style.display = 'none'; // NEVER SHOW
 
                 document.getElementById('log-dist').value = '';
                 document.getElementById('log-time').value = '';
@@ -1626,10 +1624,10 @@
         function saveLogEntry() {
             // Validate inputs
             const distVal = parseInt(document.getElementById('log-dist').value, 10);
-            // In restricted mode, we rely on CSV for breakdown, so dist MUST come from there or edit.
             const rpeVal = parseInt(document.getElementById('log-rpe').value, 10);
             const dateVal = document.getElementById('log-date').value;
-            const feedbackVal = document.getElementById('log-feedback') ? document.getElementById('log-feedback').value : '';
+            // Feedback is hidden/removed, so we default to empty string
+            const feedbackVal = '';
 
             if (isNaN(distVal) || distVal <= 0) {
                 alert('Please upload a valid CSV workout first.');
@@ -1661,7 +1659,7 @@
                     dist: distVal,
                     duration: 'Imported',
                     quickTime: '-',
-                    notes: feedbackVal, // Save self-feedback
+                    notes: feedbackVal,
                     rpe: isNaN(rpeVal) ? '-' : rpeVal,
                     completedMode: 'remote', // mark as imported
                     failPoint: '-',
@@ -1679,6 +1677,7 @@
                     history[editingIndex].notes = feedbackVal;
                 }
             }
+
 
             // Sort descending by time
             history.sort((a, b) => {
