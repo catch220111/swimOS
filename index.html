@@ -1386,34 +1386,33 @@
         }
 
         function loadHistory() {
-            function renderHistoryList() {
-                const history = JSON.parse(localStorage.getItem('swimLogs') || '[]');
-                const list = document.getElementById('history-list');
-                list.innerHTML = '';
+            const history = JSON.parse(localStorage.getItem('swimLogs') || '[]');
+            const list = document.getElementById('history-list');
+            list.innerHTML = '';
 
-                if (history.length === 0) {
-                    list.innerHTML = '<div class="muted" style="text-align:center; padding:20px;">No workouts logged yet.</div>';
-                    return;
-                }
+            if (history.length === 0) {
+                list.innerHTML = '<div class="muted" style="text-align:center; padding:20px;">No workouts logged yet.</div>';
+                return;
+            }
 
-                history.forEach((log, index) => {
-                    // Parse date
-                    let d = new Date(log.timestamp || log.date);
-                    if (isNaN(d.getTime())) d = new Date();
+            history.forEach((log, index) => {
+                // Parse date
+                let d = new Date(log.timestamp || log.date);
+                if (isNaN(d.getTime())) d = new Date();
 
-                    const dateStr = d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
-                    const timeStr = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+                const dateStr = d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+                const timeStr = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 
-                    const div = document.createElement('div');
-                    div.className = 'session-card';
+                const div = document.createElement('div');
+                div.className = 'session-card';
 
-                    // Color code border based on distance
-                    let borderColor = '#2C2C2E';
-                    if (log.dist >= 3000) borderColor = 'var(--accent)';
-                    else if (log.dist >= 2000) borderColor = 'var(--success)';
-                    div.style.borderLeftColor = borderColor;
+                // Color code border based on distance
+                let borderColor = '#2C2C2E';
+                if (log.dist >= 3000) borderColor = 'var(--accent)';
+                else if (log.dist >= 2000) borderColor = 'var(--success)';
+                div.style.borderLeftColor = borderColor;
 
-                    div.innerHTML = `
+                div.innerHTML = `
                     <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                         <div>
                             <div style="font-size:0.9rem; font-weight:700; color:#fff;">${dateStr}</div>
@@ -1430,1025 +1429,981 @@
                         <button class="tag-btn" style="padding:4px 8px; font-size:0.75rem; background:#4a1212; color:#ff8080;" onclick="deleteLog(${index})">Delete</button>
                     </div>
                 `;
-                    list.appendChild(div);
-                });
-            }
+                list.appendChild(div);
+            });
+        }
 
 
 
-            // -- CSV Log Upgrade --
+        // -- CSV Log Upgrade --
 
-            function handleModalCsvUpload(input) {
-                const file = input.files[0];
-                if (!file) return;
+        function handleModalCsvUpload(input) {
+            const file = input.files[0];
+            if (!file) return;
 
-                const reader = new FileReader();
-                reader.onload = function (e) {
-                    const text = e.target.result;
-                    const workoutPlan = parseCSV(text);
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const text = e.target.result;
+                const workoutPlan = parseCSV(text);
 
-                    if (workoutPlan.length === 0) {
-                        alert('Could not parse workout from CSV.');
-                        return;
-                    }
-
-                    // Calculate stats
-                    let totalDist = 0;
-                    workoutPlan.forEach(step => {
-                        totalDist += (step.dist || 0);
-                    });
-
-                    const breakdown = analyzeWorkout(workoutPlan, workoutPlan.length);
-
-                    // Update Modal State
-                    document.getElementById('log-dist').value = totalDist;
-                    pendingBreakdown = breakdown;
-
-                    // Visual Feedback
-                    const status = document.getElementById('modal-csv-status');
-                    status.innerText = `Loaded: ${totalDist}m (${workoutPlan.length} steps)`;
-                    status.style.color = '#a5d6a7';
-
-                    input.value = '';
-                };
-                reader.readAsText(file);
-            }
-
-            // -- Log Management --
-
-            function showLogsView() {
-                document.getElementById('view-home').classList.remove('active-view');
-                document.getElementById('view-logs').classList.add('active-view');
-                renderAnalytics();
-            }
-
-            function showHomeView() {
-                document.getElementById('view-logs').classList.remove('active-view');
-                document.getElementById('view-home').classList.add('active-view');
-            }
-
-            let editingIndex = null;
-            let pendingBreakdown = null;
-
-            function openLogModal(index, preFill = null) {
-                editingIndex = index;
-                pendingBreakdown = null;
-                const modal = document.getElementById('modal-log');
-                const title = document.getElementById('modal-log-title');
-                document.getElementById('modal-csv-status').innerText = '';
-
-                if (index === null) {
-                    // Add Mode
-                    title.innerText = preFill ? 'Import Workout' : 'Add Past Workout';
-                    document.getElementById('log-dist').value = preFill ? preFill.dist : '';
-                    document.getElementById('log-time').value = '';
-                    document.getElementById('log-rpe').value = 5;
-
-                    if (preFill && preFill.breakdown) {
-                        pendingBreakdown = preFill.breakdown;
-                    }
-
-                    const now = new Date();
-                    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-                    document.getElementById('log-date').value = now.toISOString().slice(0, 16);
-                } else {
-                    // Edit Mode
-                    const history = JSON.parse(localStorage.getItem('swimLogs') || '[]');
-                    const log = history[index];
-                    if (!log) return;
-
-                    title.innerText = 'Edit Log';
-                    document.getElementById('log-dist').value = log.dist;
-                    document.getElementById('log-time').value = log.quickTime === '-' ? '' : log.quickTime;
-                    document.getElementById('log-rpe').value = log.rpe;
-
-                    let ts = log.timestamp;
-                    if (!ts && log.date) ts = Date.parse(log.date);
-                    if (ts) {
-                        const d = new Date(ts);
-                        d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-                        document.getElementById('log-date').value = d.toISOString().slice(0, 16);
-                    }
-                }
-
-                modal.style.display = 'flex';
-            }
-
-            function closeLogModal() {
-                document.getElementById('modal-log').style.display = 'none';
-                editingIndex = null;
-                pendingBreakdown = null;
-            }
-
-            function saveLogEntry() {
-                // Validate inputs
-                const distVal = parseInt(document.getElementById('log-dist').value, 10);
-                const timeVal = document.getElementById('log-time').value;
-                const rpeVal = parseInt(document.getElementById('log-rpe').value, 10);
-                const dateVal = document.getElementById('log-date').value;
-
-                if (isNaN(distVal) || distVal <= 0) {
-                    alert('Please enter a valid distance.');
+                if (workoutPlan.length === 0) {
+                    alert('Could not parse workout from CSV.');
                     return;
                 }
 
-                const dateObj = new Date(dateVal);
-                const timestamp = dateObj.getTime();
-                if (isNaN(timestamp)) {
-                    alert('Please enter a valid date.');
-                    return;
-                }
-
-                const dateStr = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString();
-
-                const history = JSON.parse(localStorage.getItem('swimLogs') || '[]');
-
-                if (editingIndex === null) {
-                    // Add new
-                    const newLog = {
-                        date: dateStr,
-                        timestamp: timestamp,
-                        dist: distVal,
-                        duration: 'Manual',
-                        quickTime: timeVal || '-',
-                        rpe: isNaN(rpeVal) ? '-' : rpeVal,
-                        completedMode: 'manual',
-                        failPoint: '-',
-                        laps: 0,
-                        breakdown: pendingBreakdown || analyzeWorkout([{ desc: 'Free', dist: distVal }], 1) // Default or Imported
-                    };
-                    history.push(newLog);
-                } else {
-                    // Update existing
-                    if (history[editingIndex]) {
-                        history[editingIndex].dist = distVal;
-                        history[editingIndex].quickTime = timeVal || '-';
-                        history[editingIndex].rpe = isNaN(rpeVal) ? '-' : rpeVal;
-                        history[editingIndex].date = dateStr;
-                        history[editingIndex].timestamp = timestamp;
-                        if (pendingBreakdown) {
-                            history[editingIndex].breakdown = pendingBreakdown;
-                        }
-                    }
-                }
-
-                // Sort descending by time
-                history.sort((a, b) => {
-                    const tA = a.timestamp || Date.parse(a.date) || 0;
-                    const tB = b.timestamp || Date.parse(b.date) || 0;
-                    return tB - tA;
-                });
-
-                localStorage.setItem('swimLogs', JSON.stringify(history));
-
-                closeLogModal();
-                renderHistoryList();
-                renderAnalytics();
-            }
-
-            function deleteLog(index) {
-                if (!confirm('Delete this log permanently?')) return;
-
-                const history = JSON.parse(localStorage.getItem('swimLogs') || '[]');
-                history.splice(index, 1);
-                localStorage.setItem('swimLogs', JSON.stringify(history));
-
-                renderHistoryList();
-            }
-
-            function renderAnalytics() {
-                const allLogs = JSON.parse(localStorage.getItem('swimLogs') || '[]');
-                const filtered = filterLogsByPeriod(allLogs, state.analyticsPeriodDays);
-
-                const empty = document.getElementById('analytics-empty');
-                const content = document.getElementById('analytics-content');
-                if (!filtered.length) {
-                    empty.style.display = 'block';
-                    content.style.display = 'none';
-                    return;
-                }
-
-                empty.style.display = 'none';
-                content.style.display = 'block';
-
+                // Calculate stats
                 let totalDist = 0;
-                let totalRpe = 0;
-                let rpeCount = 0;
-                let plannedCount = 0;
-                let failCount = 0;
-
-                // Aggregates for charts
-                const aggStrokes = { free: 0, back: 0, breast: 0, fly: 0, im: 0, mix: 0 };
-                const aggTypes = { swim: 0, kick: 0, pull: 0, drill: 0 };
-
-                filtered.forEach((log) => {
-                    const dist = parseInt(log.dist, 10);
-                    if (Number.isFinite(dist)) totalDist += dist;
-                    const rpe = parseInt(log.rpe, 10);
-                    if (Number.isFinite(rpe)) {
-                        totalRpe += rpe;
-                        rpeCount += 1;
-                    }
-                    if (log.completedMode === 'planned') plannedCount += 1;
-                    if (log.failPoint && log.failPoint !== '-') failCount += 1;
-
-                    if (log.breakdown) {
-                        // If log has saved breakdown, use it
-                        Object.keys(log.breakdown.strokes || {}).forEach(k => aggStrokes[k] = (aggStrokes[k] || 0) + (log.breakdown.strokes[k] || 0));
-                        Object.keys(log.breakdown.types || {}).forEach(k => aggTypes[k] = (aggTypes[k] || 0) + (log.breakdown.types[k] || 0));
-                    } else {
-                        // Legacy: Assume generic freestyle swim
-                        aggStrokes.free += (parseInt(log.dist, 10) || 0);
-                        aggTypes.swim += (parseInt(log.dist, 10) || 0);
-                    }
+                workoutPlan.forEach(step => {
+                    totalDist += (step.dist || 0);
                 });
 
-                const sessions = filtered.length;
-                const avgDist = Math.round(totalDist / sessions);
-                const avgRpe = rpeCount ? (totalRpe / rpeCount).toFixed(1) : '-';
-                const plannedRate = `${Math.round((plannedCount / sessions) * 100)}%`;
+                const breakdown = analyzeWorkout(workoutPlan, workoutPlan.length);
 
-                document.getElementById('metric-sessions').innerText = sessions;
-                document.getElementById('metric-volume').innerText = `${totalDist.toLocaleString()}m`;
-                document.getElementById('metric-avg-dist').innerText = `${avgDist.toLocaleString()}m`;
-                document.getElementById('metric-avg-rpe').innerText = avgRpe;
-                document.getElementById('metric-planned-rate').innerText = plannedRate;
-                document.getElementById('metric-fails').innerText = String(failCount);
+                // Update Modal State
+                document.getElementById('log-dist').value = totalDist;
+                pendingBreakdown = breakdown;
 
-                renderDistanceBars(filtered);
-                renderPieChart('chart-strokes', 'legend-strokes', aggStrokes, totalDist,
-                    { free: '#29a3ff', back: '#ce93d8', breast: '#fff59d', fly: '#ffab91', im: '#80cbc4', mix: '#757575' });
-                renderPieChart('chart-types', 'legend-types', aggTypes, totalDist,
-                    { swim: '#29a3ff', kick: '#f48fb1', pull: '#a5d6a7', drill: '#ffcc80' });
+                // Visual Feedback
+                const status = document.getElementById('modal-csv-status');
+                status.innerText = `Loaded: ${totalDist}m (${workoutPlan.length} steps)`;
+                status.style.color = '#a5d6a7';
 
-                renderSmartInsights(filtered, allLogs);
+                input.value = '';
+            };
+            reader.readAsText(file);
+        }
+
+        // -- Log Management --
+
+        function showLogsView() {
+            document.getElementById('view-home').classList.remove('active-view');
+            document.getElementById('view-logs').classList.add('active-view');
+            renderAnalytics();
+        }
+
+        function showHomeView() {
+            document.getElementById('view-logs').classList.remove('active-view');
+            document.getElementById('view-home').classList.add('active-view');
+        }
+
+        let editingIndex = null;
+        let pendingBreakdown = null;
+
+        function openLogModal(index, preFill = null) {
+            editingIndex = index;
+            pendingBreakdown = null;
+            const modal = document.getElementById('modal-log');
+            const title = document.getElementById('modal-log-title');
+            document.getElementById('modal-csv-status').innerText = '';
+
+            if (index === null) {
+                // Add Mode
+                title.innerText = preFill ? 'Import Workout' : 'Add Past Workout';
+                document.getElementById('log-dist').value = preFill ? preFill.dist : '';
+                document.getElementById('log-time').value = '';
+                document.getElementById('log-rpe').value = 5;
+
+                if (preFill && preFill.breakdown) {
+                    pendingBreakdown = preFill.breakdown;
+                }
+
+                const now = new Date();
+                now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+                document.getElementById('log-date').value = now.toISOString().slice(0, 16);
+            } else {
+                // Edit Mode
+                const history = JSON.parse(localStorage.getItem('swimLogs') || '[]');
+                const log = history[index];
+                if (!log) return;
+
+                title.innerText = 'Edit Log';
+                document.getElementById('log-dist').value = log.dist;
+                document.getElementById('log-time').value = log.quickTime === '-' ? '' : log.quickTime;
+                document.getElementById('log-rpe').value = log.rpe;
+
+                let ts = log.timestamp;
+                if (!ts && log.date) ts = Date.parse(log.date);
+                if (ts) {
+                    const d = new Date(ts);
+                    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+                    document.getElementById('log-date').value = d.toISOString().slice(0, 16);
+                }
             }
 
-            function analyzeWorkout(plan, upToStepIndex) {
-                const stats = {
-                    strokes: { free: 0, back: 0, breast: 0, fly: 0, im: 0, mix: 0 },
-                    types: { swim: 0, kick: 0, pull: 0, drill: 0 }
+            modal.style.display = 'flex';
+        }
+
+        function closeLogModal() {
+            document.getElementById('modal-log').style.display = 'none';
+            editingIndex = null;
+            pendingBreakdown = null;
+        }
+
+        function saveLogEntry() {
+            // Validate inputs
+            const distVal = parseInt(document.getElementById('log-dist').value, 10);
+            const timeVal = document.getElementById('log-time').value;
+            const rpeVal = parseInt(document.getElementById('log-rpe').value, 10);
+            const dateVal = document.getElementById('log-date').value;
+
+            if (isNaN(distVal) || distVal <= 0) {
+                alert('Please enter a valid distance.');
+                return;
+            }
+
+            const dateObj = new Date(dateVal);
+            const timestamp = dateObj.getTime();
+            if (isNaN(timestamp)) {
+                alert('Please enter a valid date.');
+                return;
+            }
+
+            const dateStr = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString();
+
+            const history = JSON.parse(localStorage.getItem('swimLogs') || '[]');
+
+            if (editingIndex === null) {
+                // Add new
+                const newLog = {
+                    date: dateStr,
+                    timestamp: timestamp,
+                    dist: distVal,
+                    duration: 'Manual',
+                    quickTime: timeVal || '-',
+                    rpe: isNaN(rpeVal) ? '-' : rpeVal,
+                    completedMode: 'manual',
+                    failPoint: '-',
+                    laps: 0,
+                    breakdown: pendingBreakdown || analyzeWorkout([{ desc: 'Free', dist: distVal }], 1) // Default or Imported
                 };
-
-                for (let i = 0; i < upToStepIndex; i++) {
-                    const step = plan[i];
-                    if (!step || !step.dist) continue;
-
-                    const desc = (step.desc || '').toLowerCase();
-                    const dist = step.dist;
-
-                    // Detect Type
-                    if (desc.includes('kick')) stats.types.kick += dist;
-                    else if (desc.includes('pull')) stats.types.pull += dist;
-                    else if (desc.includes('drill')) stats.types.drill += dist;
-                    else stats.types.swim += dist;
-
-                    // Detect Stroke
-                    let s = 'mix';
-                    if (desc.includes('free') || desc.includes('fr')) s = 'free';
-                    else if (desc.includes('back') || desc.includes('bk')) s = 'back';
-                    else if (desc.includes('breast') || desc.includes('br')) s = 'breast';
-                    else if (desc.includes('fly') || desc.includes('fl')) s = 'fly';
-                    else if (desc.includes('im')) s = 'im';
-
-                    stats.strokes[s] += dist;
+                history.push(newLog);
+            } else {
+                // Update existing
+                if (history[editingIndex]) {
+                    history[editingIndex].dist = distVal;
+                    history[editingIndex].quickTime = timeVal || '-';
+                    history[editingIndex].rpe = isNaN(rpeVal) ? '-' : rpeVal;
+                    history[editingIndex].date = dateStr;
+                    history[editingIndex].timestamp = timestamp;
+                    if (pendingBreakdown) {
+                        history[editingIndex].breakdown = pendingBreakdown;
+                    }
                 }
-                return stats;
             }
 
-            function renderPieChart(chartId, legendId, data, total, colors) {
-                const chartEl = document.getElementById(chartId);
-                const legendEl = document.getElementById(legendId);
-                legendEl.innerHTML = '';
+            // Sort descending by time
+            history.sort((a, b) => {
+                const tA = a.timestamp || Date.parse(a.date) || 0;
+                const tB = b.timestamp || Date.parse(b.date) || 0;
+                return tB - tA;
+            });
 
-                if (total === 0) {
-                    chartEl.style.background = '#333';
-                    return;
-                }
+            localStorage.setItem('swimLogs', JSON.stringify(history));
 
-                let segments = [];
-                let currentDeg = 0;
+            closeLogModal();
+            renderHistoryList();
+            renderAnalytics();
+        }
 
-                Object.keys(data).forEach(key => {
-                    const val = data[key];
-                    if (val > 0) {
-                        const pct = val / total;
-                        const deg = pct * 360;
-                        const color = colors[key] || '#999';
-                        segments.push(`${color} ${currentDeg}deg ${currentDeg + deg}deg`);
-                        currentDeg += deg;
+        function deleteLog(index) {
+            if (!confirm('Delete this log permanently?')) return;
 
-                        // Legend Item
-                        const leg = document.createElement('div');
-                        leg.className = 'legend-item';
-                        leg.innerHTML = `
+            const history = JSON.parse(localStorage.getItem('swimLogs') || '[]');
+            history.splice(index, 1);
+            localStorage.setItem('swimLogs', JSON.stringify(history));
+
+            renderHistoryList();
+        }
+
+
+
+        function analyzeWorkout(plan, upToStepIndex) {
+            const stats = {
+                strokes: { free: 0, back: 0, breast: 0, fly: 0, im: 0, mix: 0 },
+                types: { swim: 0, kick: 0, pull: 0, drill: 0 }
+            };
+
+            for (let i = 0; i < upToStepIndex; i++) {
+                const step = plan[i];
+                if (!step || !step.dist) continue;
+
+                const desc = (step.desc || '').toLowerCase();
+                const dist = step.dist;
+
+                // Detect Type
+                if (desc.includes('kick')) stats.types.kick += dist;
+                else if (desc.includes('pull')) stats.types.pull += dist;
+                else if (desc.includes('drill')) stats.types.drill += dist;
+                else stats.types.swim += dist;
+
+                // Detect Stroke
+                let s = 'mix';
+                if (desc.includes('free') || desc.includes('fr')) s = 'free';
+                else if (desc.includes('back') || desc.includes('bk')) s = 'back';
+                else if (desc.includes('breast') || desc.includes('br')) s = 'breast';
+                else if (desc.includes('fly') || desc.includes('fl')) s = 'fly';
+                else if (desc.includes('im')) s = 'im';
+
+                stats.strokes[s] += dist;
+            }
+            return stats;
+        }
+
+        function renderPieChart(chartId, legendId, data, total, colors) {
+            const chartEl = document.getElementById(chartId);
+            const legendEl = document.getElementById(legendId);
+            legendEl.innerHTML = '';
+
+            if (total === 0) {
+                chartEl.style.background = '#333';
+                return;
+            }
+
+            let segments = [];
+            let currentDeg = 0;
+
+            Object.keys(data).forEach(key => {
+                const val = data[key];
+                if (val > 0) {
+                    const pct = val / total;
+                    const deg = pct * 360;
+                    const color = colors[key] || '#999';
+                    segments.push(`${color} ${currentDeg}deg ${currentDeg + deg}deg`);
+                    currentDeg += deg;
+
+                    // Legend Item
+                    const leg = document.createElement('div');
+                    leg.className = 'legend-item';
+                    leg.innerHTML = `
                         <div><span class="dot" style="background:${color}"></span>${key}</div>
                         <div>${Math.round(pct * 100)}%</div>
                     `;
-                        legendEl.appendChild(leg);
-                    }
-                });
+                    legendEl.appendChild(leg);
+                }
+            });
 
-                chartEl.style.background = `conic-gradient(${segments.join(', ')})`;
+            chartEl.style.background = `conic-gradient(${segments.join(', ')})`;
+        }
+
+        // --- ML / Smart Insights ---
+
+        class LinearRegression {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.n = x.length;
+                this.calculate();
             }
 
-            // --- ML / Smart Insights ---
-
-            class LinearRegression {
-                constructor(x, y) {
-                    this.x = x;
-                    this.y = y;
-                    this.n = x.length;
-                    this.calculate();
+            calculate() {
+                let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+                for (let i = 0; i < this.n; i++) {
+                    sumX += this.x[i];
+                    sumY += this.y[i];
+                    sumXY += this.x[i] * this.y[i];
+                    sumXX += this.x[i] * this.x[i];
                 }
+                this.slope = (this.n * sumXY - sumX * sumY) / (this.n * sumXX - sumX * sumX);
+                this.intercept = (sumY - this.slope * sumX) / this.n;
+            }
 
-                calculate() {
-                    let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
-                    for (let i = 0; i < this.n; i++) {
-                        sumX += this.x[i];
-                        sumY += this.y[i];
-                        sumXY += this.x[i] * this.y[i];
-                        sumXX += this.x[i] * this.x[i];
-                    }
-                    this.slope = (this.n * sumXY - sumX * sumY) / (this.n * sumXX - sumX * sumX);
-                    this.intercept = (sumY - this.slope * sumX) / this.n;
+            predict(x) {
+                return this.slope * x + this.intercept;
+            }
+        }
+
+        function renderSmartInsights(logs) {
+            const container = document.getElementById('ml-insights-content');
+            if (!container) return;
+
+            if (logs.length < 3) {
+                container.innerHTML = '<div class="muted">Need at least 3 logs to generate insights.</div>';
+                return;
+            }
+
+            const insights = [];
+            const now = Date.now();
+            const dayMs = 24 * 60 * 60 * 1000;
+
+            // 1. Performance Forecast (Volume)
+            // Get volume per week for last 4 weeks
+            const weeks = {};
+            logs.forEach(log => {
+                const ts = getLogTimestamp(log);
+                const ageDays = (now - ts) / dayMs;
+                if (ageDays <= 28) {
+                    const w = Math.floor(ageDays / 7);
+                    weeks[w] = (weeks[w] || 0) + parseInt(log.dist, 10);
                 }
+            });
 
-                predict(x) {
-                    return this.slope * x + this.intercept;
+            // X: Week index (3=oldest, 0=current), Y: Volume
+            const xData = [], yData = [];
+            for (let i = 3; i >= 0; i--) {
+                if (weeks[i] !== undefined) {
+                    xData.push(3 - i); // normalize to 0..3 ascending
+                    yData.push(weeks[i]);
                 }
             }
 
-            function renderSmartInsights(logs) {
-                const container = document.getElementById('ml-insights-content');
-                if (!container) return;
+            if (xData.length >= 2) {
+                try {
+                    const lr = new LinearRegression(xData, yData);
+                    const nextWeekPred = Math.max(0, Math.round(lr.predict(4))); // Forecast next week (index 4)
 
-                if (logs.length < 3) {
-                    container.innerHTML = '<div class="muted">Need at least 3 logs to generate insights.</div>';
-                    return;
-                }
+                    // Only show if we have a valid slope
+                    if (!isNaN(lr.slope)) {
+                        const trend = lr.slope > 0 ? 'increasing' : 'decreasing';
+                        const icon = lr.slope > 0 ? '📈' : '📉';
 
-                const insights = [];
-                const now = Date.now();
-                const dayMs = 24 * 60 * 60 * 1000;
-
-                // 1. Performance Forecast (Volume)
-                // Get volume per week for last 4 weeks
-                const weeks = {};
-                logs.forEach(log => {
-                    const ts = getLogTimestamp(log);
-                    const ageDays = (now - ts) / dayMs;
-                    if (ageDays <= 28) {
-                        const w = Math.floor(ageDays / 7);
-                        weeks[w] = (weeks[w] || 0) + parseInt(log.dist, 10);
-                    }
-                });
-
-                // X: Week index (3=oldest, 0=current), Y: Volume
-                const xData = [], yData = [];
-                for (let i = 3; i >= 0; i--) {
-                    if (weeks[i] !== undefined) {
-                        xData.push(3 - i); // normalize to 0..3 ascending
-                        yData.push(weeks[i]);
-                    }
-                }
-
-                if (xData.length >= 2) {
-                    try {
-                        const lr = new LinearRegression(xData, yData);
-                        const nextWeekPred = Math.max(0, Math.round(lr.predict(4))); // Forecast next week (index 4)
-
-                        // Only show if we have a valid slope
-                        if (!isNaN(lr.slope)) {
-                            const trend = lr.slope > 0 ? 'increasing' : 'decreasing';
-                            const icon = lr.slope > 0 ? '📈' : '📉';
-
-                            insights.push(`
+                        insights.push(`
                         <div style="margin-bottom:8px;">
                             <strong>${icon} Forecast:</strong> Volume is ${trend}. 
                             Predicted for next week: <span style="color:var(--accent);">${nextWeekPred}m</span>.
                         </div>
                     `);
-                        }
-                    } catch (e) { console.error('ML Error', e); }
-                }
-
-                // 2. Cycle Adjuster (Fail Points)
-                let failCount = 0;
-                let totalSessions = 0;
-
-                // Check last 10 logs
-                const recentLogs = logs.slice(0, 10);
-                recentLogs.forEach(log => {
-                    totalSessions++;
-                    if (log.failPoint && log.failPoint !== '-') {
-                        failCount++;
                     }
-                });
+                } catch (e) { console.error('ML Error', e); }
+            }
 
-                const failRate = totalSessions ? (failCount / totalSessions) : 0;
+            // 2. Cycle Adjuster (Fail Points)
+            let failCount = 0;
+            let totalSessions = 0;
 
-                if (failRate > 0.3) {
-                    insights.push(`
+            // Check last 10 logs
+            const recentLogs = logs.slice(0, 10);
+            recentLogs.forEach(log => {
+                totalSessions++;
+                if (log.failPoint && log.failPoint !== '-') {
+                    failCount++;
+                }
+            });
+
+            const failRate = totalSessions ? (failCount / totalSessions) : 0;
+
+            if (failRate > 0.3) {
+                insights.push(`
                 <div style="margin-bottom:8px; color:#ffab91;">
                     <strong>⚠️ High Intensity:</strong> You've missed intervals in ${Math.round(failRate * 100)}% of recent sessions. 
                     Consider adding +5s to your base cycle.
                 </div>
             `);
-                } else if (failRate === 0 && totalSessions >= 5) {
-                    insights.push(`
+            } else if (failRate === 0 && totalSessions >= 5) {
+                insights.push(`
                 <div style="margin-bottom:8px; color:#a5d6a7;">
                     <strong>🚀 Crushing It:</strong> Zero fails in recent sessions. 
                     Try tightening your cycle by -5s for a challenge!
                 </div>
             `);
-                }
-
-                if (insights.length === 0) {
-                    container.innerHTML = '<div class="muted">No significant trends detected yet. Keep training!</div>';
-                } else {
-                    container.innerHTML = insights.join('');
-                }
             }
 
-            // --- ANALYTICS ENGINE ---
+            if (insights.length === 0) {
+                container.innerHTML = '<div class="muted">No significant trends detected yet. Keep training!</div>';
+            } else {
+                container.innerHTML = insights.join('');
+            }
+        }
 
-            function renderAnalytics() {
-                const days = state.analyticsPeriodDays;
-                const history = JSON.parse(localStorage.getItem('swimLogs') || '[]');
+        // --- ANALYTICS ENGINE ---
 
-                // Filter by date
-                const now = new Date();
-                const cutoff = new Date();
-                if (days === 'all') {
-                    cutoff.setFullYear(2000);
-                } else {
-                    cutoff.setDate(now.getDate() - days);
-                }
+        function renderAnalytics() {
+            const days = state.analyticsPeriodDays;
+            const history = JSON.parse(localStorage.getItem('swimLogs') || '[]');
 
-                const filtered = history.filter(log => {
-                    const d = new Date(log.timestamp || log.date);
-                    return d >= cutoff;
-                });
-
-                // 1. Update Metrics
-                let totalDist = 0;
-                let totalTime = 0;
-                let totalRPE = 0;
-                let rpeCount = 0;
-
-                filtered.forEach(log => {
-                    totalDist += (log.dist || 0);
-                    if (log.rpe && log.rpe > 0) {
-                        totalRPE += parseInt(log.rpe);
-                        rpeCount++;
-                    }
-                    // Estimate time if manual
-                    let dur = 0;
-                    if (log.duration && log.duration.includes('mins')) {
-                        dur = parseInt(log.duration);
-                    }
-                    totalTime += dur;
-                });
-
-                document.getElementById('metric-volume').innerText = (totalDist / 1000).toFixed(1) + 'k';
-
-                // Pace Calc (avg min/100m)
-                // approximations for demo:
-                if (totalDist > 0 && totalTime > 0) {
-                    const paceSeconds = (totalTime * 60) / (totalDist / 100);
-                    document.getElementById('metric-pace').innerText = formatTime(paceSeconds);
-                } else {
-                    document.getElementById('metric-pace').innerText = '--:--';
-                }
-
-                // 2. Render Charts
-                renderHeatmap(history); // heat map always shows 6 months
-                calculateAndRenderPBs(history);
-                renderVolumePaceChart(filtered);
-                renderRPEChart(filtered);
-                renderPieChart(filtered);
+            // Filter by date
+            const now = new Date();
+            const cutoff = new Date();
+            if (days === 'all') {
+                cutoff.setFullYear(2000);
+            } else {
+                cutoff.setDate(now.getDate() - days);
             }
 
-            function renderHeatmap(logs) {
-                const container = document.getElementById('heatmap-container');
-                container.innerHTML = '';
+            const filtered = history.filter(log => {
+                const d = new Date(log.timestamp || log.date);
+                return d >= cutoff;
+            });
 
-                // Last 180 days
-                const today = new Date();
-                const mapData = {};
+            // 1. Update Metrics
+            let totalDist = 0;
+            let totalTime = 0;
 
-                logs.forEach(l => {
-                    const d = new Date(l.timestamp || l.date).toDateString();
-                    mapData[d] = (mapData[d] || 0) + l.dist;
-                });
+            // Aggregates for Pie Charts
+            const aggStrokes = { free: 0, back: 0, breast: 0, fly: 0, im: 0, mix: 0 };
+            const aggTypes = { swim: 0, kick: 0, pull: 0, drill: 0 };
 
-                // Generate grid (columns are weeks, rows are days 0-6)
-                // We'll generate 26 columns (6 months)
-                for (let c = 0; c < 26; c++) {
-                    const col = document.createElement('div');
-                    col.style.display = 'grid';
-                    col.style.gridTemplateRows = 'repeat(7, 10px)';
-                    col.style.gap = '3px';
+            filtered.forEach(log => {
+                const dist = parseInt(log.dist, 10) || 0;
+                totalDist += dist;
 
-                    for (let r = 0; r < 7; r++) {
-                        // Calculate date: Start from 26 weeks ago + (c*7 + r) days
-                        const cellDate = new Date();
-                        cellDate.setDate(today.getDate() - ((25 - c) * 7) + (r - today.getDay())); // Align roughly
-
-                        const dateStr = cellDate.toDateString();
-                        const dist = mapData[dateStr] || 0;
-
-                        const cell = document.createElement('div');
-                        cell.className = 'heatmap-cell';
-                        if (dist > 0) cell.className += ' level-1';
-                        if (dist >= 1000) cell.className = 'heatmap-cell level-2';
-                        if (dist >= 2000) cell.className = 'heatmap-cell level-3';
-                        if (dist >= 3000) cell.className = 'heatmap-cell level-4';
-                        if (dist >= 4500) cell.className = 'heatmap-cell level-5';
-
-                        cell.title = `${dateStr}: ${dist}m`;
-                        col.appendChild(cell);
-                    }
-                    container.appendChild(col);
+                // Estimate time if manual
+                let dur = 0;
+                if (log.duration && log.duration.includes('mins')) {
+                    dur = parseInt(log.duration) || 0;
                 }
+                totalTime += dur;
+
+                // Pie Data
+                if (log.breakdown) {
+                    Object.keys(log.breakdown.strokes || {}).forEach(k => aggStrokes[k] = (aggStrokes[k] || 0) + (log.breakdown.strokes[k] || 0));
+                    Object.keys(log.breakdown.types || {}).forEach(k => aggTypes[k] = (aggTypes[k] || 0) + (log.breakdown.types[k] || 0));
+                } else {
+                    aggStrokes.free += dist;
+                    aggTypes.swim += dist;
+                }
+            });
+
+            document.getElementById('metric-volume').innerText = (totalDist / 1000).toFixed(1) + 'k';
+
+            // Pace Calc (avg min/100m)
+            if (totalDist > 0 && totalTime > 0) {
+                const paceSeconds = (totalTime * 60) / (totalDist / 100);
+                document.getElementById('metric-pace').innerText = formatTime(paceSeconds);
+            } else {
+                document.getElementById('metric-pace').innerText = '--:--';
             }
 
-            function calculateAndRenderPBs(logs) {
-                const grid = document.getElementById('pb-grid');
-                grid.innerHTML = '';
+            // 2. Render Charts
+            renderHeatmap(history);
+            calculateAndRenderPBs(history);
+            renderVolumePaceChart(filtered);
+            renderRPEChart(filtered);
 
-                let maxDist = 0;
-                let maxVolWeek = 0; // naive implementation for now
-                let fast100 = 999999;
+            // Render Pie Charts (Strokes & Types)
+            // Using Neon Palette: Cyan, Green, Pink, Yellow, White, Grey
+            renderPieChart('chart-strokes', 'legend-strokes', aggStrokes, totalDist,
+                { free: '#00F0FF', back: '#00FF9D', breast: '#FFD600', fly: '#FF2A6D', im: '#FFFFFF', mix: '#888888' });
 
-                logs.forEach(l => {
-                    if (l.dist > maxDist) maxDist = l.dist;
-                    // Check if quickTime is for 100m
-                    // In a real app we'd need structured data for this.
-                });
+            // We need a container for chart-types if we want to show it, 
+            // but currently the HTML only has 'chart-strokes' in the premium UI.
+            // But let's support it if the element exists.
+            if (document.getElementById('chart-types')) {
+                renderPieChart('chart-types', 'legend-types', aggTypes, totalDist,
+                    { swim: '#00F0FF', kick: '#FF2A6D', pull: '#00FF9D', drill: '#FFD600' });
+            }
 
-                const pbs = [
-                    { label: 'Longest Swim', val: maxDist + 'm' },
-                    { label: 'Total Logs', val: logs.length },
-                    { label: 'This Year', val: (logs.reduce((acc, l) => acc + (new Date(l.timestamp).getFullYear() === new Date().getFullYear() ? l.dist : 0), 0) / 1000).toFixed(1) + 'km' }
-                ];
+            renderSmartInsights(filtered);
+        }
 
-                pbs.forEach(pb => {
-                    grid.innerHTML += `
+        function renderHeatmap(logs) {
+            const container = document.getElementById('heatmap-container');
+            container.innerHTML = '';
+
+            // Last 180 days
+            const today = new Date();
+            const mapData = {};
+
+            logs.forEach(l => {
+                const d = new Date(l.timestamp || l.date).toDateString();
+                mapData[d] = (mapData[d] || 0) + l.dist;
+            });
+
+            // Generate grid (columns are weeks, rows are days 0-6)
+            // We'll generate 26 columns (6 months)
+            for (let c = 0; c < 26; c++) {
+                const col = document.createElement('div');
+                col.style.display = 'grid';
+                col.style.gridTemplateRows = 'repeat(7, 10px)';
+                col.style.gap = '3px';
+
+                for (let r = 0; r < 7; r++) {
+                    // Calculate date: Start from 26 weeks ago + (c*7 + r) days
+                    const cellDate = new Date();
+                    cellDate.setDate(today.getDate() - ((25 - c) * 7) + (r - today.getDay())); // Align roughly
+
+                    const dateStr = cellDate.toDateString();
+                    const dist = mapData[dateStr] || 0;
+
+                    const cell = document.createElement('div');
+                    cell.className = 'heatmap-cell';
+                    if (dist > 0) cell.className += ' level-1';
+                    if (dist >= 1000) cell.className = 'heatmap-cell level-2';
+                    if (dist >= 2000) cell.className = 'heatmap-cell level-3';
+                    if (dist >= 3000) cell.className = 'heatmap-cell level-4';
+                    if (dist >= 4500) cell.className = 'heatmap-cell level-5';
+
+                    cell.title = `${dateStr}: ${dist}m`;
+                    col.appendChild(cell);
+                }
+                container.appendChild(col);
+            }
+        }
+
+        function calculateAndRenderPBs(logs) {
+            const grid = document.getElementById('pb-grid');
+            grid.innerHTML = '';
+
+            let maxDist = 0;
+            let maxVolWeek = 0; // naive implementation for now
+            let fast100 = 999999;
+
+            logs.forEach(l => {
+                if (l.dist > maxDist) maxDist = l.dist;
+                // Check if quickTime is for 100m
+                // In a real app we'd need structured data for this.
+            });
+
+            const pbs = [
+                { label: 'Longest Swim', val: maxDist + 'm' },
+                { label: 'Total Logs', val: logs.length },
+                { label: 'This Year', val: (logs.reduce((acc, l) => acc + (new Date(l.timestamp).getFullYear() === new Date().getFullYear() ? l.dist : 0), 0) / 1000).toFixed(1) + 'km' }
+            ];
+
+            pbs.forEach(pb => {
+                grid.innerHTML += `
                     <div class="stat-item">
                         <div class="stat-lbl">${pb.label}</div>
                         <div class="stat-val" style="font-size:1.3rem;">${pb.val}</div>
                     </div>
                 `;
-                });
+            });
+        }
+
+
+        function formatTime(s) {
+            const sec = Math.max(0, parseInt(s, 10) || 0);
+            const min = Math.floor(sec / 60);
+            const rem = sec % 60;
+            return `${min}:${rem < 10 ? '0' : ''}${rem}`;
+        }
+
+        function parseTimeToSeconds(value) {
+            if (!value) return NaN;
+            const trimmed = String(value).trim();
+            if (trimmed.includes(':')) {
+                const parts = trimmed.split(':').map(v => parseInt(v, 10));
+                if (parts.some(Number.isNaN)) return NaN;
+                if (parts.length === 2) return parts[0] * 60 + parts[1];
+            }
+            const single = parseInt(trimmed, 10);
+            return Number.isNaN(single) ? NaN : single;
+        }
+
+        function initAudio() {
+            if (!state.audioCtx) {
+                state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (state.audioCtx.state === 'suspended') {
+                state.audioCtx.resume();
+            }
+        }
+
+        function beep(freq, duration, type = 'sine', volume = 0.35) {
+            if (!state.audioCtx) return;
+
+            const osc = state.audioCtx.createOscillator();
+            const gain = state.audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.value = freq;
+
+            osc.connect(gain);
+            gain.connect(state.audioCtx.destination);
+
+            const now = state.audioCtx.currentTime;
+            gain.gain.setValueAtTime(Math.max(0.0001, volume), now);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+            osc.start(now);
+            osc.stop(now + duration);
+        }
+
+        function speakText(text) {
+            if (!('speechSynthesis' in window)) return;
+            const utter = new SpeechSynthesisUtterance(text);
+            utter.rate = 0.95;
+            utter.pitch = 1;
+            utter.volume = 1;
+            window.speechSynthesis.cancel();
+            window.speechSynthesis.speak(utter);
+        }
+
+        function toggleJumboMode(on) {
+            state.jumboMode = !!on;
+            document.getElementById('toggle-jumbo').checked = state.jumboMode;
+            document.getElementById('jumbo-clock').style.display = state.jumboMode ? 'flex' : 'none';
+        }
+
+        function toggleWetMode(on) {
+            state.wetMode = !!on;
+            document.getElementById('toggle-wet').checked = state.wetMode;
+            document.getElementById('wet-layer').style.display = state.wetMode ? 'grid' : 'none';
+        }
+
+        async function requestWakeLock() {
+            if (!('wakeLock' in navigator)) {
+                document.getElementById('voice-status').innerText = 'Wake Lock not supported on this device/browser.';
+                document.getElementById('toggle-wakelock').checked = false;
+                return;
             }
 
-
-            function formatTime(s) {
-                const sec = Math.max(0, parseInt(s, 10) || 0);
-                const min = Math.floor(sec / 60);
-                const rem = sec % 60;
-                return `${min}:${rem < 10 ? '0' : ''}${rem}`;
-            }
-
-            function parseTimeToSeconds(value) {
-                if (!value) return NaN;
-                const trimmed = String(value).trim();
-                if (trimmed.includes(':')) {
-                    const parts = trimmed.split(':').map(v => parseInt(v, 10));
-                    if (parts.some(Number.isNaN)) return NaN;
-                    if (parts.length === 2) return parts[0] * 60 + parts[1];
-                }
-                const single = parseInt(trimmed, 10);
-                return Number.isNaN(single) ? NaN : single;
-            }
-
-            function initAudio() {
-                if (!state.audioCtx) {
-                    state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                }
-                if (state.audioCtx.state === 'suspended') {
-                    state.audioCtx.resume();
-                }
-            }
-
-            function beep(freq, duration, type = 'sine', volume = 0.35) {
-                if (!state.audioCtx) return;
-
-                const osc = state.audioCtx.createOscillator();
-                const gain = state.audioCtx.createGain();
-                osc.type = type;
-                osc.frequency.value = freq;
-
-                osc.connect(gain);
-                gain.connect(state.audioCtx.destination);
-
-                const now = state.audioCtx.currentTime;
-                gain.gain.setValueAtTime(Math.max(0.0001, volume), now);
-                gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
-
-                osc.start(now);
-                osc.stop(now + duration);
-            }
-
-            function speakText(text) {
-                if (!('speechSynthesis' in window)) return;
-                const utter = new SpeechSynthesisUtterance(text);
-                utter.rate = 0.95;
-                utter.pitch = 1;
-                utter.volume = 1;
-                window.speechSynthesis.cancel();
-                window.speechSynthesis.speak(utter);
-            }
-
-            function toggleJumboMode(on) {
-                state.jumboMode = !!on;
-                document.getElementById('toggle-jumbo').checked = state.jumboMode;
-                document.getElementById('jumbo-clock').style.display = state.jumboMode ? 'flex' : 'none';
-            }
-
-            function toggleWetMode(on) {
-                state.wetMode = !!on;
-                document.getElementById('toggle-wet').checked = state.wetMode;
-                document.getElementById('wet-layer').style.display = state.wetMode ? 'grid' : 'none';
-            }
-
-            async function requestWakeLock() {
-                if (!('wakeLock' in navigator)) {
-                    document.getElementById('voice-status').innerText = 'Wake Lock not supported on this device/browser.';
-                    document.getElementById('toggle-wakelock').checked = false;
-                    return;
-                }
-
-                try {
-                    state.wakeLock = await navigator.wakeLock.request('screen');
-                    state.wakeLock.addEventListener('release', () => {
-                        state.wakeLock = null;
-                    });
-                    document.getElementById('voice-status').innerText = 'Screen always-on enabled.';
-                } catch (err) {
-                    document.getElementById('voice-status').innerText = `Wake Lock failed: ${err.message}`;
-                    document.getElementById('toggle-wakelock').checked = false;
-                }
-            }
-
-            function releaseWakeLock() {
-                if (state.wakeLock) {
-                    state.wakeLock.release();
+            try {
+                state.wakeLock = await navigator.wakeLock.request('screen');
+                state.wakeLock.addEventListener('release', () => {
                     state.wakeLock = null;
-                }
-            }
-
-            async function toggleWakeLock(on) {
-                if (on) {
-                    await requestWakeLock();
-                } else {
-                    releaseWakeLock();
-                }
-            }
-
-            function renderQuickLogGrid() {
-                const samples = ['0:55', '1:00', '1:05', '1:10', '1:15', '1:20', '1:25', '1:30'];
-                const grid = document.getElementById('quick-log-grid');
-                grid.innerHTML = '';
-
-                samples.forEach((time) => {
-                    const button = document.createElement('button');
-                    button.innerText = time;
-                    button.onclick = () => {
-                        state.selectedQuickTime = time;
-                        [...grid.children].forEach(child => child.classList.remove('active'));
-                        button.classList.add('active');
-                    };
-                    grid.appendChild(button);
                 });
+                document.getElementById('voice-status').innerText = 'Screen always-on enabled.';
+            } catch (err) {
+                document.getElementById('voice-status').innerText = `Wake Lock failed: ${err.message}`;
+                document.getElementById('toggle-wakelock').checked = false;
+            }
+        }
+
+        function releaseWakeLock() {
+            if (state.wakeLock) {
+                state.wakeLock.release();
+                state.wakeLock = null;
+            }
+        }
+
+        async function toggleWakeLock(on) {
+            if (on) {
+                await requestWakeLock();
+            } else {
+                releaseWakeLock();
+            }
+        }
+
+        function renderQuickLogGrid() {
+            const samples = ['0:55', '1:00', '1:05', '1:10', '1:15', '1:20', '1:25', '1:30'];
+            const grid = document.getElementById('quick-log-grid');
+            grid.innerHTML = '';
+
+            samples.forEach((time) => {
+                const button = document.createElement('button');
+                button.innerText = time;
+                button.onclick = () => {
+                    state.selectedQuickTime = time;
+                    [...grid.children].forEach(child => child.classList.remove('active'));
+                    button.classList.add('active');
+                };
+                grid.appendChild(button);
+            });
+        }
+
+        function setRPE(value) {
+            state.rpe = parseInt(value, 10) || 5;
+            document.getElementById('rpe-value').innerText = state.rpe;
+        }
+
+        function saveFailPoint() {
+            const cycle = document.getElementById('fail-cycle').value;
+            const rep = parseInt(document.getElementById('fail-rep').value, 10);
+
+            if (!cycle || !rep) {
+                document.getElementById('fail-point-output').innerText = 'Select cycle and rep to log fail point.';
+                return;
             }
 
-            function setRPE(value) {
-                state.rpe = parseInt(value, 10) || 5;
-                document.getElementById('rpe-value').innerText = state.rpe;
+            state.failPoint = `Missed ${cycle} on rep ${rep}`;
+            document.getElementById('fail-point-output').innerText = `Saved: ${state.failPoint}. Next threshold set can be adjusted down.`;
+        }
+
+        function calculateCSS() {
+            const t400 = parseTimeToSeconds(document.getElementById('css-d400').value);
+            const t200 = parseTimeToSeconds(document.getElementById('css-d200').value);
+
+            if (!Number.isFinite(t400) || !Number.isFinite(t200) || t400 <= t200) {
+                document.getElementById('css-result').innerText = 'Enter valid times where 400m is slower than 200m.';
+                return;
             }
 
-            function saveFailPoint() {
-                const cycle = document.getElementById('fail-cycle').value;
-                const rep = parseInt(document.getElementById('fail-rep').value, 10);
+            const cssSecPer100 = (t400 - t200) / 2;
+            const target = formatTime(Math.round(cssSecPer100));
+            document.getElementById('css-result').innerText = `CSS pace: ${target} /100m. Use this to tighten future threshold intervals.`;
+        }
 
-                if (!cycle || !rep) {
-                    document.getElementById('fail-point-output').innerText = 'Select cycle and rep to log fail point.';
-                    return;
-                }
+        function toggleVoiceControl(on) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            state.voiceActive = !!on;
 
-                state.failPoint = `Missed ${cycle} on rep ${rep}`;
-                document.getElementById('fail-point-output').innerText = `Saved: ${state.failPoint}. Next threshold set can be adjusted down.`;
+            if (!SpeechRecognition) {
+                document.getElementById('voice-status').innerText = 'Voice recognition not supported in this browser.';
+                document.getElementById('toggle-voice').checked = false;
+                return;
             }
 
-            function calculateCSS() {
-                const t400 = parseTimeToSeconds(document.getElementById('css-d400').value);
-                const t200 = parseTimeToSeconds(document.getElementById('css-d200').value);
-
-                if (!Number.isFinite(t400) || !Number.isFinite(t200) || t400 <= t200) {
-                    document.getElementById('css-result').innerText = 'Enter valid times where 400m is slower than 200m.';
-                    return;
+            if (!state.voiceActive) {
+                if (state.recognition) {
+                    state.recognition.onend = null;
+                    state.recognition.stop();
                 }
-
-                const cssSecPer100 = (t400 - t200) / 2;
-                const target = formatTime(Math.round(cssSecPer100));
-                document.getElementById('css-result').innerText = `CSS pace: ${target} /100m. Use this to tighten future threshold intervals.`;
+                document.getElementById('voice-status').innerText = 'Voice control off.';
+                return;
             }
 
-            function toggleVoiceControl(on) {
-                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-                state.voiceActive = !!on;
+            if (!state.recognition) {
+                state.recognition = new SpeechRecognition();
+                state.recognition.lang = 'en-US';
+                state.recognition.continuous = true;
+                state.recognition.interimResults = false;
 
-                if (!SpeechRecognition) {
-                    document.getElementById('voice-status').innerText = 'Voice recognition not supported in this browser.';
-                    document.getElementById('toggle-voice').checked = false;
-                    return;
-                }
-
-                if (!state.voiceActive) {
-                    if (state.recognition) {
-                        state.recognition.onend = null;
-                        state.recognition.stop();
-                    }
-                    document.getElementById('voice-status').innerText = 'Voice control off.';
-                    return;
-                }
-
-                if (!state.recognition) {
-                    state.recognition = new SpeechRecognition();
-                    state.recognition.lang = 'en-US';
-                    state.recognition.continuous = true;
-                    state.recognition.interimResults = false;
-
-                    state.recognition.onresult = (event) => {
-                        const result = event.results[event.results.length - 1][0].transcript.toLowerCase().trim();
-                        handleVoiceCommand(result);
-                    };
-
-                    state.recognition.onerror = (event) => {
-                        document.getElementById('voice-status').innerText = `Voice error: ${event.error}`;
-                    };
-
-                    state.recognition.onend = () => {
-                        if (state.voiceActive) {
-                            try { state.recognition.start(); } catch (err) { }
-                        }
-                    };
-                }
-
-                try {
-                    state.recognition.start();
-                    document.getElementById('voice-status').innerText = 'Voice control listening...';
-                } catch (err) {
-                    document.getElementById('voice-status').innerText = 'Voice control busy. Try toggling off/on.';
-                }
-            }
-
-            function handleVoiceCommand(text) {
-                document.getElementById('voice-status').innerText = `Heard: "${text}"`;
-                let matched = false;
-
-                // 1. Start / Go
-                if (text.match(/\b(start|go|begin)\b/)) {
-                    const btn = document.getElementById('action-btn');
-                    if (btn && !btn.disabled) {
-                        btn.click();
-                        matched = true;
-                    }
-                }
-
-                // 2. Stop / Pause
-                else if (text.match(/\b(stop|pause|wait|hold)\b/)) {
-                    if (!state.isPaused && state.timerInterval) {
-                        togglePause();
-                        matched = true;
-                    }
-                }
-
-                // 3. Resume
-                else if (text.match(/\b(resume|continue|carry on)\b/)) {
-                    if (state.isPaused) {
-                        togglePause();
-                        matched = true;
-                    }
-                }
-
-                // 4. Next / Lap
-                else if (text.match(/\b(next|lap|skip|done)\b/)) {
-                    lapOrNext();
-                    matched = true;
-                }
-
-                // 5. Restart Interval
-                // Resets the current interval timer to its full duration
-                else if (text.match(/\b(restart|reset|again)\b/)) {
-                    if (state.timerInterval) {
-                        const step = state.workoutPlan[state.currentIndex];
-                        if (step) {
-                            runTimer(step.time, step.mode); // Re-run
-                            matched = true;
-                        }
-                    }
-                }
-
-                // 6. Log Time (Smart Parse)
-                else if (text.match(/\b(log|time|record|save)\b/)) {
-                    const timeStr = parseSpokenTime(text);
-                    if (timeStr) {
-                        state.selectedQuickTime = timeStr;
-                        highlightQuickLog(timeStr);
-                        document.getElementById('voice-status').innerText = `Logged: ${timeStr}`;
-                        matched = true;
-                    } else {
-                        document.getElementById('voice-status').innerText = `Log what? Try "Log 1:10"`;
-                    }
-                }
-
-                // 7. RPE
-                else if (text.match(/\b(rpe|effort|scale)\b/)) {
-                    const rpeMatch = text.match(/\b(10|[1-9])\b/);
-                    if (rpeMatch) {
-                        const val = parseInt(rpeMatch[1], 10);
-                        document.getElementById('rpe-slider').value = val;
-                        setRPE(val);
-                        matched = true;
-                    }
-                }
-
-                if (matched) {
-                    triggerVoiceFeedback(true);
-                }
-            }
-
-            // Attempt to parse various spoken time formats into "M:SS"
-            function parseSpokenTime(text) {
-                // "one oh five" -> 1:05
-                // "one fifteen" -> 1:15
-                // "minute thirty" -> 1:30
-                // "sixty five" -> 1:05
-                // "1:05"
-
-                // Map word numbers to digits for simple cases
-                const words = {
-                    'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
-                    'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
-                    'oh': 0, 'zero': 0, 'eleven': 11, 'twelve': 12, 'thirteen': 13,
-                    'twenty': 20, 'thirty': 30, 'forty': 40, 'fifty': 50
+                state.recognition.onresult = (event) => {
+                    const result = event.results[event.results.length - 1][0].transcript.toLowerCase().trim();
+                    handleVoiceCommand(result);
                 };
 
-                // Try to replace common number words
-                let processed = text.replace(/-/g, ' ');
-                Object.keys(words).forEach(w => {
-                    const reg = new RegExp(`\\b${w}\\b`, 'gi');
-                    processed = processed.replace(reg, words[w]);
-                });
+                state.recognition.onerror = (event) => {
+                    document.getElementById('voice-status').innerText = `Voice error: ${event.error}`;
+                };
 
-                // Remove non-digit chars that might interfere (except colon)
-                // But keep spaces to separate generic words from numbers
-
-                // 1. Extract sequence of digits/colons
-                // Case A: "1 0 5" or "1 5"
-                const numbers = processed.match(/\d+/g);
-                if (!numbers) return null;
-
-                // If explicitly like "1:05"
-                if (processed.match(/\d+:\d+/)) {
-                    const m = processed.match(/(\d+):(\d+)/);
-                    return `${parseInt(m[1])}:${parseInt(m[2]) < 10 ? '0' + parseInt(m[2]) : parseInt(m[2])}`;
-                }
-
-                // If we have sequence like [1, 5], treat as 1:05?
-                // [1, 15] -> 1:15
-                // [1, 30] -> 1:30
-                // [1, 0, 5] -> 1:05
-
-                if (numbers.length >= 2) {
-                    const m = parseInt(numbers[0]);
-                    const s = parseInt(numbers[1]);
-                    // basic valid check
-                    if (m < 60 && s < 60) {
-                        return `${m}:${s < 10 ? '0' + s : s}`;
+                state.recognition.onend = () => {
+                    if (state.voiceActive) {
+                        try { state.recognition.start(); } catch (err) { }
                     }
-                }
-
-                // If single large number e.g. "65" -> 1:05
-                if (numbers.length === 1) {
-                    const val = parseInt(numbers[0]);
-                    if (val > 59 && val < 600) { // e.g. 65 to 9m59s
-                        const m = Math.floor(val / 60);
-                        const s = val % 60;
-                        return `${m}:${s < 10 ? '0' + s : s}`;
-                    }
-                }
-
-                return null;
+                };
             }
 
-            function triggerVoiceFeedback(success) {
-                const bar = document.getElementById('voice-status');
-                const originalColor = bar.style.color;
+            try {
+                state.recognition.start();
+                document.getElementById('voice-status').innerText = 'Voice control listening...';
+            } catch (err) {
+                document.getElementById('voice-status').innerText = 'Voice control busy. Try toggling off/on.';
+            }
+        }
 
-                bar.style.color = success ? 'var(--success)' : 'var(--danger)';
-                bar.style.fontWeight = '900';
+        function handleVoiceCommand(text) {
+            document.getElementById('voice-status').innerText = `Heard: "${text}"`;
+            let matched = false;
 
-                if (success) {
-                    beep(880, 0.1, 'sine', 0.2);
-                    setTimeout(() => beep(1100, 0.15, 'sine', 0.2), 120);
+            // 1. Start / Go
+            if (text.match(/\b(start|go|begin)\b/)) {
+                const btn = document.getElementById('action-btn');
+                if (btn && !btn.disabled) {
+                    btn.click();
+                    matched = true;
                 }
-
-                setTimeout(() => {
-                    bar.style.color = '';
-                    bar.style.fontWeight = '';
-                }, 1500);
             }
 
-            function highlightQuickLog(timeStr) {
-                const grid = document.getElementById('quick-log-grid');
-                [...grid.children].forEach(btn => {
-                    if (btn.innerText === timeStr) {
-                        btn.classList.add('active');
-                    } else {
-                        btn.classList.remove('active');
-                    }
-                });
-            }
-            function renderVolumePaceChart(logs) {
-                const container = document.getElementById('chart-volume-pace');
-                if (!container) return;
-
-                if (logs.length < 2) {
-                    container.innerHTML = '<div class="muted" style="text-align:center; padding-top:80px;">Not enough data for trend.</div>';
-                    return;
+            // 2. Stop / Pause
+            else if (text.match(/\b(stop|pause|wait|hold)\b/)) {
+                if (!state.isPaused && state.timerInterval) {
+                    togglePause();
+                    matched = true;
                 }
+            }
 
-                // Group by Week or Month depending on range? 
-                // For simplicity, let's do "Last N Sessions" or distinct dates
-                // Reverse logs to be chronological first
-                const chronLogs = [...logs].reverse();
+            // 3. Resume
+            else if (text.match(/\b(resume|continue|carry on)\b/)) {
+                if (state.isPaused) {
+                    togglePause();
+                    matched = true;
+                }
+            }
 
-                // Prepare Data Points
-                const data = chronLogs.map(l => {
-                    let pace = 0;
-                    if (l.duration && l.dist > 0) {
-                        const mins = parseInt(l.duration) || 0;
-                        if (mins > 0) pace = (mins * 60) / (l.dist / 100);
+            // 4. Next / Lap
+            else if (text.match(/\b(next|lap|skip|done)\b/)) {
+                lapOrNext();
+                matched = true;
+            }
+
+            // 5. Restart Interval
+            // Resets the current interval timer to its full duration
+            else if (text.match(/\b(restart|reset|again)\b/)) {
+                if (state.timerInterval) {
+                    const step = state.workoutPlan[state.currentIndex];
+                    if (step) {
+                        runTimer(step.time, step.mode); // Re-run
+                        matched = true;
                     }
-                    if (l.quickTime && l.dist > 0) {
-                        const pts = parseTimeToSeconds(l.quickTime);
-                        if (!isNaN(pts)) pace = pts / (l.dist / 100);
-                    }
-                    return { date: l.date, dist: l.dist, pace: pace };
-                });
+                }
+            }
 
-                // Scales
-                const maxDist = Math.max(...data.map(d => d.dist)) || 1000;
-                const maxPace = Math.max(...data.map(d => d.pace)) || 120; // seconds/100m
-                const minPace = Math.min(...data.filter(d => d.pace > 0).map(d => d.pace)) || 60;
+            // 6. Log Time (Smart Parse)
+            else if (text.match(/\b(log|time|record|save)\b/)) {
+                const timeStr = parseSpokenTime(text);
+                if (timeStr) {
+                    state.selectedQuickTime = timeStr;
+                    highlightQuickLog(timeStr);
+                    document.getElementById('voice-status').innerText = `Logged: ${timeStr}`;
+                    matched = true;
+                } else {
+                    document.getElementById('voice-status').innerText = `Log what? Try "Log 1:10"`;
+                }
+            }
 
-                const w = container.clientWidth || 340;
-                const h = 180;
-                const pad = 20;
-                const graphW = w - (pad * 2);
-                const graphH = h - (pad * 2);
+            // 7. RPE
+            else if (text.match(/\b(rpe|effort|scale)\b/)) {
+                const rpeMatch = text.match(/\b(10|[1-9])\b/);
+                if (rpeMatch) {
+                    const val = parseInt(rpeMatch[1], 10);
+                    document.getElementById('rpe-slider').value = val;
+                    setRPE(val);
+                    matched = true;
+                }
+            }
 
-                const stepX = graphW / (data.length - 1 || 1);
+            if (matched) {
+                triggerVoiceFeedback(true);
+            }
+        }
 
-                // BAR (Volume)
-                let barsSvg = '';
-                data.forEach((d, i) => {
-                    const barH = (d.dist / maxDist) * graphH;
-                    const x = pad + (i * stepX) - 2;
-                    const y = h - pad - barH;
-                    barsSvg += `<rect class="bar" x="${x}" y="${y}" width="4" height="${barH}" data-date="${d.date}"></rect>`;
-                });
+        // Attempt to parse various spoken time formats into "M:SS"
+        function parseSpokenTime(text) {
+            // "one oh five" -> 1:05
+            // "one fifteen" -> 1:15
+            // "minute thirty" -> 1:30
+            // "sixty five" -> 1:05
+            // "1:05"
 
-                // LINE (Pace)
-                let linePath = '';
-                let isValid = false;
+            // Map word numbers to digits for simple cases
+            const words = {
+                'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
+                'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
+                'oh': 0, 'zero': 0, 'eleven': 11, 'twelve': 12, 'thirteen': 13,
+                'twenty': 20, 'thirty': 30, 'forty': 40, 'fifty': 50
+            };
 
-                data.forEach((d, i) => {
-                    if (d.pace <= 0) return;
-                    // Normalize pace: faster (lower val) should be higher on graph? 
-                    // Usually pace graphs invert Y axis (lower is better/higher visually).
-                    // Let's map MinPace to Top(0) and MaxPace to Bottom(graphH)
+            // Try to replace common number words
+            let processed = text.replace(/-/g, ' ');
+            Object.keys(words).forEach(w => {
+                const reg = new RegExp(`\\b${w}\\b`, 'gi');
+                processed = processed.replace(reg, words[w]);
+            });
 
-                    const paceRange = maxPace - minPace;
-                    const normalized = (d.pace - minPace) / (paceRange || 1);
-                    // 0 = fast (top), 1 = slow (bottom)
-                    const py = pad + (normalized * graphH);
-                    const px = pad + (i * stepX);
+            // Remove non-digit chars that might interfere (except colon)
+            // But keep spaces to separate generic words from numbers
 
-                    if (!isValid) {
-                        linePath += `M ${px} ${py}`;
-                        isValid = true;
-                    } else {
-                        linePath += ` L ${px} ${py}`;
-                    }
-                });
+            // 1. Extract sequence of digits/colons
+            // Case A: "1 0 5" or "1 5"
+            const numbers = processed.match(/\d+/g);
+            if (!numbers) return null;
 
-                container.innerHTML = `
+            // If explicitly like "1:05"
+            if (processed.match(/\d+:\d+/)) {
+                const m = processed.match(/(\d+):(\d+)/);
+                return `${parseInt(m[1])}:${parseInt(m[2]) < 10 ? '0' + parseInt(m[2]) : parseInt(m[2])}`;
+            }
+
+            // If we have sequence like [1, 5], treat as 1:05?
+            // [1, 15] -> 1:15
+            // [1, 30] -> 1:30
+            // [1, 0, 5] -> 1:05
+
+            if (numbers.length >= 2) {
+                const m = parseInt(numbers[0]);
+                const s = parseInt(numbers[1]);
+                // basic valid check
+                if (m < 60 && s < 60) {
+                    return `${m}:${s < 10 ? '0' + s : s}`;
+                }
+            }
+
+            // If single large number e.g. "65" -> 1:05
+            if (numbers.length === 1) {
+                const val = parseInt(numbers[0]);
+                if (val > 59 && val < 600) { // e.g. 65 to 9m59s
+                    const m = Math.floor(val / 60);
+                    const s = val % 60;
+                    return `${m}:${s < 10 ? '0' + s : s}`;
+                }
+            }
+
+            return null;
+        }
+
+        function triggerVoiceFeedback(success) {
+            const bar = document.getElementById('voice-status');
+            const originalColor = bar.style.color;
+
+            bar.style.color = success ? 'var(--success)' : 'var(--danger)';
+            bar.style.fontWeight = '900';
+
+            if (success) {
+                beep(880, 0.1, 'sine', 0.2);
+                setTimeout(() => beep(1100, 0.15, 'sine', 0.2), 120);
+            }
+
+            setTimeout(() => {
+                bar.style.color = '';
+                bar.style.fontWeight = '';
+            }, 1500);
+        }
+
+        function highlightQuickLog(timeStr) {
+            const grid = document.getElementById('quick-log-grid');
+            [...grid.children].forEach(btn => {
+                if (btn.innerText === timeStr) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+        }
+        function renderVolumePaceChart(logs) {
+            const container = document.getElementById('chart-volume-pace');
+            if (!container) return;
+
+            if (logs.length < 2) {
+                container.innerHTML = '<div class="muted" style="text-align:center; padding-top:80px;">Not enough data for trend.</div>';
+                return;
+            }
+
+            // Group by Week or Month depending on range? 
+            // For simplicity, let's do "Last N Sessions" or distinct dates
+            // Reverse logs to be chronological first
+            const chronLogs = [...logs].reverse();
+
+            // Prepare Data Points
+            const data = chronLogs.map(l => {
+                let pace = 0;
+                if (l.duration && l.dist > 0) {
+                    const mins = parseInt(l.duration) || 0;
+                    if (mins > 0) pace = (mins * 60) / (l.dist / 100);
+                }
+                if (l.quickTime && l.dist > 0) {
+                    const pts = parseTimeToSeconds(l.quickTime);
+                    if (!isNaN(pts)) pace = pts / (l.dist / 100);
+                }
+                return { date: l.date, dist: l.dist, pace: pace };
+            });
+
+            // Scales
+            const maxDist = Math.max(...data.map(d => d.dist)) || 1000;
+            const maxPace = Math.max(...data.map(d => d.pace)) || 120; // seconds/100m
+            const minPace = Math.min(...data.filter(d => d.pace > 0).map(d => d.pace)) || 60;
+
+            const w = container.clientWidth || 340;
+            const h = 180;
+            const pad = 20;
+            const graphW = w - (pad * 2);
+            const graphH = h - (pad * 2);
+
+            const stepX = graphW / (data.length - 1 || 1);
+
+            // BAR (Volume)
+            let barsSvg = '';
+            data.forEach((d, i) => {
+                const barH = (d.dist / maxDist) * graphH;
+                const x = pad + (i * stepX) - 2;
+                const y = h - pad - barH;
+                barsSvg += `<rect class="bar" x="${x}" y="${y}" width="4" height="${barH}" data-date="${d.date}"></rect>`;
+            });
+
+            // LINE (Pace)
+            let linePath = '';
+            let isValid = false;
+
+            data.forEach((d, i) => {
+                if (d.pace <= 0) return;
+                // Normalize pace: faster (lower val) should be higher on graph? 
+                // Usually pace graphs invert Y axis (lower is better/higher visually).
+                // Let's map MinPace to Top(0) and MaxPace to Bottom(graphH)
+
+                const paceRange = maxPace - minPace;
+                const normalized = (d.pace - minPace) / (paceRange || 1);
+                // 0 = fast (top), 1 = slow (bottom)
+                const py = pad + (normalized * graphH);
+                const px = pad + (i * stepX);
+
+                if (!isValid) {
+                    linePath += `M ${px} ${py}`;
+                    isValid = true;
+                } else {
+                    linePath += ` L ${px} ${py}`;
+                }
+            });
+
+            container.innerHTML = `
                     <svg width="100%" height="100%" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
                         <!-- Volume Bars -->
                         ${barsSvg}
@@ -2460,50 +2415,50 @@
                         <text x="${w - pad - 30}" y="${h - 5}" style="fill:#666;">Newest</text>
                     </svg>
                 `;
-            }
+        }
 
-            function renderRPEChart(logs) {
-                const container = document.getElementById('chart-rpe');
-                if (!container) return;
+        function renderRPEChart(logs) {
+            const container = document.getElementById('chart-rpe');
+            if (!container) return;
 
-                const counts = Array(11).fill(0); // 0-10
-                logs.forEach(l => {
-                    const r = parseInt(l.rpe) || 0;
-                    if (r >= 0 && r <= 10) counts[r]++;
-                });
+            const counts = Array(11).fill(0); // 0-10
+            logs.forEach(l => {
+                const r = parseInt(l.rpe) || 0;
+                if (r >= 0 && r <= 10) counts[r]++;
+            });
 
-                // We only care about 1-10
-                const maxCount = Math.max(...counts.slice(1)) || 1;
+            // We only care about 1-10
+            const maxCount = Math.max(...counts.slice(1)) || 1;
 
-                const w = container.clientWidth || 340;
-                const h = 140;
-                const pad = 20;
-                const barW = (w - (pad * 2)) / 10;
+            const w = container.clientWidth || 340;
+            const h = 140;
+            const pad = 20;
+            const barW = (w - (pad * 2)) / 10;
 
-                let svgContent = '';
+            let svgContent = '';
 
-                for (let i = 1; i <= 10; i++) {
-                    const val = counts[i];
-                    const barH = (val / maxCount) * (h - pad - 20);
-                    const x = pad + ((i - 1) * barW);
-                    const y = h - pad - barH;
+            for (let i = 1; i <= 10; i++) {
+                const val = counts[i];
+                const barH = (val / maxCount) * (h - pad - 20);
+                const x = pad + ((i - 1) * barW);
+                const y = h - pad - barH;
 
-                    // Heatmap color for intensity
-                    let fill = '#444';
-                    if (i >= 8) fill = 'var(--danger)';
-                    else if (i >= 5) fill = 'var(--warning)';
-                    else fill = 'var(--success)';
+                // Heatmap color for intensity
+                let fill = '#444';
+                if (i >= 8) fill = 'var(--danger)';
+                else if (i >= 5) fill = 'var(--warning)';
+                else fill = 'var(--success)';
 
-                    if (val > 0) {
-                        svgContent += `<rect x="${x + 2}" y="${y}" width="${barW - 4}" height="${barH}" fill="${fill}" rx="2"></rect>`;
-                        svgContent += `<text x="${x + barW / 2}" y="${y - 5}" text-anchor="middle" fill="#fff" font-size="10">${val}</text>`;
-                    }
-
-                    svgContent += `<text x="${x + barW / 2}" y="${h - 5}" text-anchor="middle" fill="#888" font-size="9">${i}</text>`;
+                if (val > 0) {
+                    svgContent += `<rect x="${x + 2}" y="${y}" width="${barW - 4}" height="${barH}" fill="${fill}" rx="2"></rect>`;
+                    svgContent += `<text x="${x + barW / 2}" y="${y - 5}" text-anchor="middle" fill="#fff" font-size="10">${val}</text>`;
                 }
 
-                container.innerHTML = `<svg width="100%" height="100%" viewBox="0 0 ${w} ${h}">${svgContent}</svg>`;
+                svgContent += `<text x="${x + barW / 2}" y="${h - 5}" text-anchor="middle" fill="#888" font-size="9">${i}</text>`;
             }
+
+            container.innerHTML = `<svg width="100%" height="100%" viewBox="0 0 ${w} ${h}">${svgContent}</svg>`;
+        }
     </script>
 </body>
 
