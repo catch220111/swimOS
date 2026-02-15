@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Play, Pause, SkipForward, X, Square } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Play, Pause, SkipForward, X, Square, Volume2, VolumeX, Mic, MicOff } from 'lucide-react';
 import { formatTime } from '../utils/formatters';
 import { initAudio, beep, speakText } from '../utils/audio';
 import { saveLog } from '../utils/storage';
 import { analyzeWorkout } from '../utils/analytics';
+import useVoiceCommands from '../utils/useVoiceCommands';
 
 export default function WorkoutView({ workoutPlan, onExit }) {
     const [currentIndex, setCurrentIndex] = useState(0);
@@ -12,11 +13,65 @@ export default function WorkoutView({ workoutPlan, onExit }) {
     const [elapsedTime, setElapsedTime] = useState(0);
     const [isPaused, setIsPaused] = useState(false);
     const [timerActive, setTimerActive] = useState(false);
-    const [timerFinished, setTimerFinished] = useState(false); // New state for transition
+    const [timerFinished, setTimerFinished] = useState(false);
+    const [voiceEnabled, setVoiceEnabled] = useState(true); // Default ON
 
     // Refs
     const intervalRef = useRef(null);
     const startTimeRef = useRef(Date.now());
+
+    // --- Voice Command Setup ---
+    // We use useMemo so options don't recreate on every render, causing effect re-runs
+    const commands = useMemo(() => ({
+        'start': () => {
+            // If timer is finished, "start" means advance. 
+            // If timer is NOT active and NOT finished, "start" means start timer.
+            if (timerFinishedRef.current) advanceStepRef.current();
+            else if (!timerActiveRef.current) handleStartRef.current();
+        },
+        'go': () => {
+            if (timerFinishedRef.current) advanceStepRef.current();
+            else if (!timerActiveRef.current) handleStartRef.current();
+        },
+        'next': () => {
+            // "Next" usually means skip or advance
+            if (timerFinishedRef.current) advanceStepRef.current();
+            else if (timerActiveRef.current) {
+                // Check if it's manual mode? Or just force finish?
+                // Force finish current step
+                clearInterval(intervalRef.current);
+                handleTimerCompleteRef.current();
+            }
+        },
+        'pause': () => {
+            if (timerActiveRef.current && !isPausedRef.current) togglePauseRef.current();
+        },
+        'resume': () => {
+            if (timerActiveRef.current && isPausedRef.current) togglePauseRef.current();
+        },
+        'stop': () => {
+            if (timerActiveRef.current && !isPausedRef.current) togglePauseRef.current();
+        },
+        'quit': () => onExitRef.current()
+    }), []); // Dependencies handled via Refs below
+
+    const { isListening, toggleListening, error: micError, transcript } = useVoiceCommands(commands);
+
+    // Refs for Voice Commands to access latest state without closure staleness
+    const timerFinishedRef = useRef(timerFinished);
+    const timerActiveRef = useRef(timerActive);
+    const isPausedRef = useRef(isPaused);
+    const handleStartRef = useRef(null);
+    const advanceStepRef = useRef(null);
+    const togglePauseRef = useRef(null);
+    const handleTimerCompleteRef = useRef(null);
+    const onExitRef = useRef(onExit);
+
+    useEffect(() => {
+        timerFinishedRef.current = timerFinished;
+        timerActiveRef.current = timerActive;
+        isPausedRef.current = isPaused;
+    }, [timerFinished, timerActive, isPaused]);
 
     // Initial Setup
     useEffect(() => {
@@ -43,9 +98,9 @@ export default function WorkoutView({ workoutPlan, onExit }) {
         initAudio();
         // Only speak/beep if starting a timed interval
         if (workoutPlan.plan[currentIndex].mode !== 'rest') {
-            speakText('Take your marks');
+            if (voiceEnabled) speakText('Take your marks');
             setTimeout(() => {
-                beep(1850, 0.38, 'square', 0.95);
+                if (voiceEnabled) beep(1850, 0.38, 'square', 0.95);
                 startTimer();
             }, 1300);
         } else {
@@ -53,6 +108,7 @@ export default function WorkoutView({ workoutPlan, onExit }) {
             startTimer();
         }
     };
+    handleStartRef.current = handleStart;
 
     const startTimer = () => {
         setTimerActive(true);
@@ -77,7 +133,7 @@ export default function WorkoutView({ workoutPlan, onExit }) {
                     }
 
                     // Beep logic (only for countdowns)
-                    if (prev <= 4 && prev > 1) {
+                    if (prev <= 4 && prev > 1 && voiceEnabled) {
                         beep(1200, 0.12, 'square', 0.24);
                     }
 
@@ -90,8 +146,9 @@ export default function WorkoutView({ workoutPlan, onExit }) {
     const handleTimerComplete = () => {
         setTimerActive(false);
         setTimerFinished(true);
-        beep(1450, 0.5, 'square', 0.5); // Signal completion
+        if (voiceEnabled) beep(1450, 0.5, 'square', 0.5); // Signal completion
     };
+    handleTimerCompleteRef.current = handleTimerComplete;
 
     // Called when user clicks "NEXT" (or "START REST" / "START INTERVAL")
     const advanceStep = () => {
@@ -104,6 +161,7 @@ export default function WorkoutView({ workoutPlan, onExit }) {
             finishWorkout();
         }
     };
+    advanceStepRef.current = advanceStep;
 
     const finishWorkout = () => {
         const durationMin = Math.ceil((Date.now() - startTimeRef.current) / 60000);
@@ -123,6 +181,7 @@ export default function WorkoutView({ workoutPlan, onExit }) {
         alert('Workout Complete!');
         onExit();
     };
+    onExitRef.current = onExit;
 
     const togglePause = () => {
         if (!timerActive) return;
@@ -133,6 +192,7 @@ export default function WorkoutView({ workoutPlan, onExit }) {
             setIsPaused(true);
         }
     };
+    togglePauseRef.current = togglePause;
 
     const currentStep = workoutPlan?.plan[currentIndex];
     if (!currentStep) return <div className="view active-view">Loading...</div>;
@@ -169,11 +229,47 @@ export default function WorkoutView({ workoutPlan, onExit }) {
     return (
         <div className="view active-view" style={{ display: 'flex', flexDirection: 'column', height: '100vh', paddingBottom: '0' }}>
             {/* Simple Top Bar */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px' }}>
                 <div style={{ fontWeight: 700 }}>{currentDist} / {workoutPlan.total}m</div>
-                <div style={{ fontWeight: 700, opacity: 0.7 }}>Rep {currentStep.rep} / {currentStep.totalReps}</div>
-                <button className="btn btn-danger" style={{ width: 'auto', padding: '8px 12px', fontSize: '0.8rem' }} onClick={onExit}>QUIT</button>
+
+                <div style={{ fontWeight: 700, opacity: 0.7, fontSize: '0.9rem' }}>
+                    Rep {currentStep.rep} / {currentStep.totalReps}
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px' }}>
+                    {/* Voice Command Toggle */}
+                    <button
+                        className="btn"
+                        onClick={toggleListening}
+                        style={{
+                            width: 'auto', padding: '8px 12px',
+                            background: isListening ? 'var(--accent)' : 'transparent',
+                            border: isListening ? 'none' : '1px solid #444',
+                            color: isListening ? '#000' : '#666'
+                        }}
+                        title={micError || "Voice Control"}
+                    >
+                        {isListening ? <Mic size={20} /> : <MicOff size={20} />}
+                    </button>
+
+                    {/* Audio Feedback Toggle */}
+                    <button
+                        className="btn"
+                        onClick={() => setVoiceEnabled(!voiceEnabled)}
+                        style={{ width: 'auto', padding: '8px 12px', background: 'transparent', border: '1px solid #444', color: voiceEnabled ? '#fff' : '#666' }}
+                    >
+                        {voiceEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
+                    </button>
+                    <button className="btn btn-danger" style={{ width: 'auto', padding: '8px 12px', fontSize: '0.8rem' }} onClick={onExit}>QUIT</button>
+                </div>
             </div>
+
+            {/* Transcript Helper (Optional Debug) */}
+            {transcript && isListening && (
+                <div style={{ position: 'absolute', top: 70, right: 20, fontSize: '0.8rem', color: 'var(--accent)', opacity: 0.5 }}>
+                    "{transcript}"
+                </div>
+            )}
 
             {/* Main Card */}
             <div style={{
