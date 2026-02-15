@@ -1469,8 +1469,10 @@
                         </div>
                     </div>
                     
+                    ${log.notes ? `<div style="margin-top:8px; font-size:0.85rem; color:#ccc; background:#222; padding:6px; border-radius:6px; font-style:italic;">"${log.notes}"</div>` : ''}
+                    
                     <div style="margin-top:10px; display:flex; gap:8px;">
-                        <button class="tag-btn" style="padding:4px 8px; font-size:0.75rem;" onclick="openLogModal(${index})">Edit</button>
+                        <button class="tag-btn" style="padding:4px 8px; font-size:0.75rem;" onclick="openLogModal(${index})">Edit & Feedback</button>
                         <button class="tag-btn" style="padding:4px 8px; font-size:0.75rem; background:#4a1212; color:#ff8080;" onclick="deleteLog(${index})">Delete</button>
                     </div>
                 `;
@@ -1510,8 +1512,19 @@
 
                 // Visual Feedback
                 const status = document.getElementById('modal-csv-status');
-                status.innerText = `Loaded: ${totalDist}m (${workoutPlan.length} steps)`;
-                status.style.color = '#a5d6a7';
+                status.innerHTML = `
+                    <div style="color:var(--success); font-weight:700; font-size:1.1rem; margin-bottom:8px;">
+                        ✓ Loaded ${totalDist}m
+                    </div>
+                    <div style="font-size:0.9rem; color:#ccc;">
+                        ${workoutPlan.length} steps parsed.
+                    </div>
+                `;
+
+                // Show Feedback Section
+                if (document.getElementById('section-feedback')) {
+                    document.getElementById('section-feedback').style.display = 'block';
+                }
 
                 input.value = '';
             };
@@ -1539,21 +1552,33 @@
             pendingBreakdown = null;
             const modal = document.getElementById('modal-log');
             const title = document.getElementById('modal-log-title');
+
+            // UI Elements
+            const manualFields = document.getElementById('manual-fields');
+            const csvSection = document.getElementById('section-csv-upload');
+            const feedbackSection = document.getElementById('section-feedback');
+
             document.getElementById('modal-csv-status').innerText = '';
+            if (document.getElementById('log-feedback')) document.getElementById('log-feedback').value = '';
 
             if (index === null) {
-                // Add Mode
-                title.innerText = preFill ? 'Import Workout' : 'Add Past Workout';
-                document.getElementById('log-dist').value = preFill ? preFill.dist : '';
+                // Add Mode (CSV ONLY)
+                title.innerText = 'Log Past Workout (CSV Required)';
+
+                // Hide Manual Inputs initially
+                if (manualFields) manualFields.style.display = 'none';
+                if (csvSection) csvSection.style.display = 'block';
+                if (feedbackSection) feedbackSection.style.display = 'none'; // Show after upload
+
+                document.getElementById('log-dist').value = '';
                 document.getElementById('log-time').value = '';
                 document.getElementById('log-rpe').value = 5;
-                // Default values for new log
+                // Reset dropdowns
                 if (document.getElementById('log-stroke')) document.getElementById('log-stroke').value = 'mix';
                 if (document.getElementById('log-type')) document.getElementById('log-type').value = 'swim';
 
-                if (preFill && preFill.breakdown) {
-                    pendingBreakdown = preFill.breakdown;
-                }
+                // Reset Breakdown
+                pendingBreakdown = null;
 
                 const now = new Date();
                 now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
@@ -1564,22 +1589,16 @@
                 const log = history[index];
                 if (!log) return;
 
-                title.innerText = 'Edit Log';
-                document.getElementById('log-dist').value = log.dist;
-                document.getElementById('log-time').value = log.quickTime === '-' ? '' : log.quickTime;
-                document.getElementById('log-rpe').value = log.rpe;
+                title.innerText = 'Edit Log Feedback';
 
-                // Try to populate dropdowns from breakdown
-                let s = 'mix';
-                let t = 'swim';
-                if (log.breakdown) {
-                    const strokes = log.breakdown.strokes || {};
-                    const types = log.breakdown.types || {};
-                    for (let k in strokes) { if (strokes[k] == log.dist) s = k; }
-                    for (let k in types) { if (types[k] == log.dist) t = k; }
-                }
-                if (document.getElementById('log-stroke')) document.getElementById('log-stroke').value = s;
-                if (document.getElementById('log-type')) document.getElementById('log-type').value = t;
+                // Show Manual Fields (read-only mainly) or just feedback
+                if (manualFields) manualFields.style.display = 'none'; // Hide detail for cleanliness
+                if (csvSection) csvSection.style.display = 'none';
+                if (feedbackSection) feedbackSection.style.display = 'block';
+
+                document.getElementById('log-dist').value = log.dist;
+                if (document.getElementById('log-feedback')) document.getElementById('log-feedback').value = log.notes || '';
+                document.getElementById('log-rpe').value = log.rpe;
 
                 let ts = log.timestamp;
                 if (!ts && log.date) ts = Date.parse(log.date);
@@ -1602,14 +1621,13 @@
         function saveLogEntry() {
             // Validate inputs
             const distVal = parseInt(document.getElementById('log-dist').value, 10);
-            const timeVal = document.getElementById('log-time').value;
+            // In restricted mode, we rely on CSV for breakdown, so dist MUST come from there or edit.
             const rpeVal = parseInt(document.getElementById('log-rpe').value, 10);
             const dateVal = document.getElementById('log-date').value;
-            const strokeVal = document.getElementById('log-stroke') ? document.getElementById('log-stroke').value : 'mix';
-            const typeVal = document.getElementById('log-type') ? document.getElementById('log-type').value : 'swim';
+            const feedbackVal = document.getElementById('log-feedback') ? document.getElementById('log-feedback').value : '';
 
             if (isNaN(distVal) || distVal <= 0) {
-                alert('Please enter a valid distance.');
+                alert('Please upload a valid CSV workout first.');
                 return;
             }
 
@@ -1624,20 +1642,11 @@
 
             const history = JSON.parse(localStorage.getItem('swimLogs') || '[]');
 
-            // Construct Breakdown
-            const manualBreakdown = {
-                strokes: { free: 0, back: 0, breast: 0, fly: 0, im: 0, mix: 0 },
-                types: { swim: 0, kick: 0, pull: 0, drill: 0 }
-            };
-
-            if (manualBreakdown.strokes.hasOwnProperty(strokeVal)) manualBreakdown.strokes[strokeVal] = distVal;
-            else manualBreakdown.strokes.mix = distVal;
-
-            if (manualBreakdown.types.hasOwnProperty(typeVal)) manualBreakdown.types[typeVal] = distVal;
-            else manualBreakdown.types.swim = distVal;
-
-            // Use pending breakdown (from CSV) if available, otherwise use manual selection
-            const finalBreakdown = pendingBreakdown || manualBreakdown;
+            // If adding new, we REQUIRE pendingBreakdown from CSV
+            if (editingIndex === null && !pendingBreakdown) {
+                alert('Please upload a CSV file to add a log.');
+                return;
+            }
 
             if (editingIndex === null) {
                 // Add new
@@ -1645,24 +1654,24 @@
                     date: dateStr,
                     timestamp: timestamp,
                     dist: distVal,
-                    duration: 'Manual',
-                    quickTime: timeVal || '-',
+                    duration: 'Imported',
+                    quickTime: '-',
+                    notes: feedbackVal, // Save self-feedback
                     rpe: isNaN(rpeVal) ? '-' : rpeVal,
-                    completedMode: 'manual',
+                    completedMode: 'remote', // mark as imported
                     failPoint: '-',
                     laps: 0,
-                    breakdown: finalBreakdown
+                    breakdown: pendingBreakdown
                 };
                 history.push(newLog);
             } else {
-                // Update existing
+                // Update existing (mostly notes/metadata)
                 if (history[editingIndex]) {
-                    history[editingIndex].dist = distVal;
-                    history[editingIndex].quickTime = timeVal || '-';
+                    // We don't overwrite distance/breakdown on edit in this restricted mode
                     history[editingIndex].rpe = isNaN(rpeVal) ? '-' : rpeVal;
                     history[editingIndex].date = dateStr;
                     history[editingIndex].timestamp = timestamp;
-                    history[editingIndex].breakdown = finalBreakdown;
+                    history[editingIndex].notes = feedbackVal;
                 }
             }
 
