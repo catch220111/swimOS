@@ -686,11 +686,16 @@
             <!-- Quick Start Card -->
             <div class="card" style="text-align:center; padding: 30px 20px;">
                 <div style="font-size:3rem; margin-bottom:10px;">🏊</div>
-                <h3 style="margin-bottom:8px;">Ready to Swim?</h3>
-                <p class="muted" style="margin-bottom:24px;">Load a plan or start tracking.</p>
+                <h3 style="margin-bottom:8px;">Log & Track</h3>
+                <p class="muted" style="margin-bottom:24px;">Upload your workout CSV to update analytics.</p>
                 <div style="display:grid; gap:12px;">
-                    <button class="btn btn-primary" onclick="document.getElementById('csv-upload').click()">Load Workout
-                        CSV</button>
+                    <button class="btn btn-primary" onclick="openLogModal(null)">Log Past Workout (CSV Upload)</button>
+
+                    <div style="margin-top:8px;">
+                        <button class="btn" style="background:transparent; color:#666; font-size:0.8rem;"
+                            onclick="document.getElementById('csv-upload').click()">Start Live Session (Legacy)</button>
+                    </div>
+
                     <input type="file" id="csv-upload" style="display:none;" accept=".csv"
                         onchange="handleFileUpload(this)">
                     <button id="btn-resume" class="btn"
