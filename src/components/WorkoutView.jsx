@@ -10,11 +10,13 @@ export default function WorkoutView({ workoutPlan, onExit }) {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [currentDist, setCurrentDist] = useState(0);
     const [timeLeft, setTimeLeft] = useState(0);
+    const [restPhase, setRestPhase] = useState('swim'); // 'swim' or 'rest' for Two-Phase Rest Mode
     const [elapsedTime, setElapsedTime] = useState(0);
     const [isPaused, setIsPaused] = useState(false);
     const [timerActive, setTimerActive] = useState(false);
     const [voiceEnabled, setVoiceEnabled] = useState(true); // Default ON
     const [showSetList, setShowSetList] = useState(false); // New state for Full Set View
+    const [completedSplits, setCompletedSplits] = useState({}); // Stores actual swim times { index: seconds }
 
     // Refs
     const intervalRef = useRef(null);
@@ -96,20 +98,33 @@ export default function WorkoutView({ workoutPlan, onExit }) {
 
         setCurrentIndex(index);
 
+        // Recalculate distance
         let d = 0;
         for (let i = 0; i < index; i++) d += workoutPlan.plan[i].dist;
         setCurrentDist(d);
 
-        setTimeLeft(step.time);
+        // State Reset
         setElapsedTime(0);
         setTimerActive(false);
         setIsPaused(false);
         clearInterval(intervalRef.current);
 
+        // Two-Phase Logic:
+        // If mode is 'rest' (Fixed Rest), we start in 'swim' phase (Count Up).
+        // If mode is 'interval', regular logic applies (Count Down from Interval Time).
+        if (step.mode === 'rest') {
+            setRestPhase('swim');
+            setTimeLeft(0); // Count Up doesn't use timeLeft
+        } else {
+            setRestPhase(null); // Not applicable
+            setTimeLeft(step.time);
+        }
+
         // Auto-Start Logic:
-        // - Interval/Swim: YES (unless Manual 0-time, handled by 0 check)
-        // - Rest: NO (User explicitly requested "Do not auto-start")
-        if (autoStart && step.mode !== 'rest' && step.time > 0) {
+        // - Interval: YES (unless Manual)
+        // - Rest (Phase 1 Swim): YES (User wants "Seamless Flow")
+        // - Manual (0-time): NO
+        if (autoStart && step.time > 0) {
             handleStart();
         }
     };
@@ -123,6 +138,28 @@ export default function WorkoutView({ workoutPlan, onExit }) {
     };
     handleStartRef.current = handleStart;
 
+    const startRestPhase = () => {
+        // Transition from Phase 1 (Swim) to Phase 2 (Rest)
+        clearInterval(intervalRef.current);
+        const step = workoutPlan.plan[currentIndex];
+
+        // CAPTURE SPLIT (Performance Logging)
+        // Store the final count-up time for this step
+        setCompletedSplits(prev => ({
+            ...prev,
+            [currentIndex]: elapsedTime
+        }));
+
+        setRestPhase('rest');
+        setTimeLeft(step.time); // Set the rest duration
+        setTimerActive(true);
+
+        // Start Countdown immediately
+        if (voiceEnabled) beep(1200, 0.1, 'square', 0.1);
+
+        startTimer();
+    };
+
     const startTimer = () => {
         setTimerActive(true);
         setIsPaused(false);
@@ -131,26 +168,26 @@ export default function WorkoutView({ workoutPlan, onExit }) {
         const isManual = currentStep.time === 0;
 
         intervalRef.current = setInterval(() => {
-            if (isManual) {
+            // Count-Up Logic: Manual steps OR Phase 1 of Rest Mode
+            if (isManual || (currentStep.mode === 'rest' && restPhase === 'swim')) {
                 setElapsedTime(prev => prev + 1);
-            } else {
+            }
+            // Count-Down Logic: Interval steps OR Phase 2 of Rest Mode
+            else {
                 setTimeLeft((prev) => {
                     if (prev <= 1) {
                         clearInterval(intervalRef.current);
-                        // If it's a Rest, we do NOT auto-advance. We wait for user.
-                        // If it's an Interval, we Auto-Advance.
-                        if (currentStep.mode === 'rest') {
-                            setTimerActive(false); // Finished
-                            if (voiceEnabled) beep(1450, 0.5, 'square', 0.5);
-                        } else {
-                            // Interval Auto-Advance
-                            if (voiceEnabled) beep(1450, 0.5, 'square', 0.5);
-                            advanceStep(true);
+
+                        // ZERO-TOUCH LOGIC:
+                        if (voiceEnabled) {
+                            beep(1500, 0.8, 'square', 1.0); // "GO!"
                         }
+                        advanceStep(true);
                         return 0;
                     }
+
                     if (prev <= 4 && prev > 1 && voiceEnabled) {
-                        beep(1200, 0.12, 'square', 0.24);
+                        beep(880, 0.1, 'square', 0.2);
                     }
                     return prev - 1;
                 });
@@ -192,6 +229,13 @@ export default function WorkoutView({ workoutPlan, onExit }) {
     // ... (finishWorkout, togglePause, etc. unchanged) ...
     const finishWorkout = () => {
         const durationMin = Math.ceil((Date.now() - startTimeRef.current) / 60000);
+        // MERGE LOGS
+        // Create a detailed breakdown that includes the actual splits
+        const enrichedPlan = workoutPlan.plan.map((step, idx) => ({
+            ...step,
+            actualTime: completedSplits[idx] || (step.time > 0 ? step.time : 0) // Use captured time or planned time
+        }));
+
         const log = {
             date: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString(),
             timestamp: Date.now(),
@@ -202,7 +246,9 @@ export default function WorkoutView({ workoutPlan, onExit }) {
             completedMode: 'planned',
             failPoint: '-',
             laps: 0,
-            breakdown: analyzeWorkout(workoutPlan.plan)
+            splits: completedSplits, // Save raw splits
+            breakdown: analyzeWorkout(workoutPlan.plan), // Stats (unchanged)
+            detailedPlan: enrichedPlan // Full history
         };
         saveLog(log);
         alert('Workout Complete!');
@@ -221,17 +267,24 @@ export default function WorkoutView({ workoutPlan, onExit }) {
     };
     togglePauseRef.current = togglePause;
 
+    // UI Logic
     const currentStep = workoutPlan?.plan[currentIndex];
     if (!currentStep) return <div className="view active-view">Loading...</div>;
 
     // Theme & State Logic
-    const isRest = currentStep.mode === 'rest';
-    let themeColor = isRest ? "#e53e3e" : "#4299e1";
-    let bgColor = isRest ? "#3b1717" : "#1a2c42";
-    let statusLabel = isRest ? "RESTING" : "SWIMMING";
-    const timerFinished = !timerActive && timeLeft === 0 && currentStep.time > 0;
+    // Adjusted for Two-Phase Rest
+    const isRestRow = currentStep.mode === 'rest';
+    const isRestingActual = isRestRow && restPhase === 'rest'; // Actually in Phase 2
 
-    if (currentStep.time === 0) {
+    let themeColor = "#4299e1"; // Default Blue (Swim)
+    let bgColor = "#1a2c42";
+    let statusLabel = "SWIMMING";
+
+    if (isRestingActual) {
+        themeColor = "#e53e3e"; // Red (Rest)
+        bgColor = "#3b1717";
+        statusLabel = "RESTING";
+    } else if (currentStep.time === 0) {
         statusLabel = "MANUAL";
         themeColor = "#ecc94b";
         bgColor = "#44380b";
@@ -239,36 +292,40 @@ export default function WorkoutView({ workoutPlan, onExit }) {
 
     const nextStep = workoutPlan.plan[currentIndex + 1];
 
-    // ... (previous button logic) ...
-    // Button Logic for REST
+    // Button Logic
     let mainBtn = null;
     let secBtn = null;
 
-    if (isRest) {
-        if (timerFinished) {
+    if (isRestRow) {
+        // Two-Phase Logic
+        if (restPhase === 'swim') {
+            // Phase 1: Swimming (Count Up)
+            // Button: FINISHED SWIM (Triggers Rest)
             mainBtn = (
-                <button className="btn" onClick={() => advanceStep(true)}
-                    style={{ flex: 1, height: '80px', fontSize: '1.6rem', background: '#48bb78', color: '#000', fontWeight: 900, animation: 'pulse 1.5s infinite' }}>
-                    GO TO NEXT SET <SkipForward size={24} style={{ marginLeft: '10px' }} />
+                <button className="btn" onClick={startRestPhase}
+                    style={{ flex: 2, height: '80px', fontSize: '1.5rem', background: 'var(--accent)', color: '#000', fontWeight: 700 }}>
+                    <SkipForward size={24} style={{ marginRight: '8px' }} />
+                    FINISHED SWIM
                 </button>
             );
-        } else if (timerActive) {
-            mainBtn = (
-                <button className="btn btn-danger" onClick={() => advanceStep(true)}
-                    style={{ flex: 1, height: '80px', fontSize: '1.3rem', fontWeight: 700 }}>
-                    SKIP REST / START SWIM
+            secBtn = (
+                <button className="btn" onClick={togglePause} style={{ flex: 1, height: '80px', fontSize: '1.2rem', background: '#4a5568' }}>
+                    {isPaused ? <Play size={24} style={{ marginRight: '8px' }} /> : <Pause size={24} style={{ marginRight: '8px' }} />}
+                    {isPaused ? 'RESUME' : 'PAUSE'}
                 </button>
             );
         } else {
+            // Phase 2: Resting (Count Down)
+            // Button: SKIP REST (Skip to Next)
             mainBtn = (
-                <button className="btn btn-success" onClick={handleStart}
-                    style={{ flex: 1, height: '80px', fontSize: '1.8rem', fontWeight: 800 }}>
-                    <Play size={32} style={{ marginRight: '10px' }} /> START REST
+                <button className="btn btn-danger" onClick={() => advanceStep(true)}
+                    style={{ flex: 1, height: '80px', fontSize: '1.3rem', fontWeight: 700 }}>
+                    SKIP REST
                 </button>
             );
         }
     } else {
-        // INTERVAL MODE
+        // INTERVAL MODE (Regular)
         secBtn = (
             <button className="btn" onClick={togglePause} style={{ flex: 1, height: '80px', fontSize: '1.2rem', background: '#4a5568' }}>
                 {isPaused ? <Play size={24} style={{ marginRight: '8px' }} /> : <Pause size={24} style={{ marginRight: '8px' }} />}
@@ -279,10 +336,15 @@ export default function WorkoutView({ workoutPlan, onExit }) {
             <button className="btn" onClick={() => advanceStep(true)}
                 style={{ flex: 2, height: '80px', fontSize: '1.5rem', background: 'var(--accent)', color: '#000', fontWeight: 700 }}>
                 <SkipForward size={24} style={{ marginRight: '8px' }} />
-                {timerFinished ? "NEXT CARD" : "SKIP INTERVAL"}
+                SKIP INTERVAL
             </button>
         );
     }
+
+    // Display Value: Count Up or Count Down?
+    // Count Up: Manual OR (Rest Mode AND Swim Phase)
+    const showCountUp = currentStep.time === 0 || (isRestRow && restPhase === 'swim');
+    const displayTime = showCountUp ? formatTime(elapsedTime) : formatTime(timeLeft);
 
     return (
         <div className="view active-view" style={{ display: 'flex', flexDirection: 'column', height: '100vh', paddingBottom: '0', overflow: 'hidden' }}>
@@ -394,15 +456,25 @@ export default function WorkoutView({ workoutPlan, onExit }) {
                                 {currentStep.dist}m {currentStep.mode}
                             </div>
 
+                            {/* PERFORMANCE LOG: Show Last Split */}
+                            {isRestingActual && completedSplits[currentIndex] && (
+                                <div style={{ background: 'rgba(255,255,255,0.15)', padding: '5px 15px', borderRadius: '20px', marginBottom: '10px', border: '1px solid rgba(255,255,255,0.3)' }}>
+                                    <span style={{ fontSize: '1rem', opacity: 0.8, marginRight: '8px' }}>LAST SWIM:</span>
+                                    <span style={{ fontSize: '1.4rem', fontWeight: 700, fontFamily: 'monospace', color: 'var(--accent)' }}>
+                                        {formatTime(completedSplits[currentIndex])}
+                                    </span>
+                                </div>
+                            )}
+
                             <div style={{ fontSize: '2.5rem', fontWeight: 800, lineHeight: 1.1, maxWidth: '95%', marginBottom: '10px' }}>{currentStep.desc}</div>
 
                             <div style={{
                                 fontSize: '6rem', fontWeight: 900, fontFamily: 'monospace',
-                                color: isRest ? '#ff6b6b' : '#63b3ed',
+                                color: isRestingActual ? '#ff6b6b' : '#63b3ed',
                                 background: 'rgba(0,0,0,0.2)', padding: '0 20px', borderRadius: '16px',
                                 display: 'inline-block', minWidth: '300px'
                             }}>
-                                {currentStep.time === 0 ? formatTime(elapsedTime) : formatTime(timeLeft)}
+                                {displayTime}
                             </div>
                         </div>
                     </div>
