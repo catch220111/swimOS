@@ -81,7 +81,8 @@ export default function WorkoutView({ workoutPlan, onExit }) {
         return () => clearInterval(intervalRef.current);
     }, [workoutPlan]);
 
-    const setupStep = (index) => {
+    // Updated to accept autoStart flag
+    const setupStep = (index, autoStart = false) => {
         if (!workoutPlan || index >= workoutPlan.plan.length) return;
         const step = workoutPlan.plan[index];
 
@@ -92,6 +93,12 @@ export default function WorkoutView({ workoutPlan, onExit }) {
         setIsPaused(false);
         setTimerFinished(false);
         clearInterval(intervalRef.current);
+
+        // Auto-start if requested AND step is timed
+        // User requested: "follows the timer unless it's the ones with no break mentioned" (Manual 0-time)
+        if (autoStart && step.time > 0) {
+            handleStart(); // This handles the beep/voice delay internally
+        }
     };
 
     const handleStart = () => {
@@ -144,19 +151,35 @@ export default function WorkoutView({ workoutPlan, onExit }) {
     };
 
     const handleTimerComplete = () => {
-        setTimerActive(false);
-        setTimerFinished(true);
-        if (voiceEnabled) beep(1450, 0.5, 'square', 0.5); // Signal completion
+        // Just finished a timed step
+        const currentStep = workoutPlan.plan[currentIndex];
+
+        // If it was a TIMED step, we auto-advance according to user request
+        if (currentStep.time > 0) {
+            setTimerActive(false);
+            setTimerFinished(true); // Briefly show finished state?
+            if (voiceEnabled) beep(1450, 0.5, 'square', 0.5);
+
+            // Short delay to show 00:00 then move on
+            setTimeout(() => {
+                advanceStep(true); // Auto-start next
+            }, 1000);
+        } else {
+            // Manual step finished (via button/voice command forcing completion)
+            setTimerActive(false);
+            setTimerFinished(true);
+            if (voiceEnabled) beep(1450, 0.5, 'square', 0.5);
+        }
     };
     handleTimerCompleteRef.current = handleTimerComplete;
 
-    // Called when user clicks "NEXT" (or "START REST" / "START INTERVAL")
-    const advanceStep = () => {
+    // Called when user clicks "NEXT" manually or via Auto-Advance
+    const advanceStep = (autoStart = false) => {
         const step = workoutPlan.plan[currentIndex];
         setCurrentDist(prev => prev + step.dist);
 
         if (currentIndex < workoutPlan.plan.length - 1) {
-            setupStep(currentIndex + 1);
+            setupStep(currentIndex + 1, autoStart);
         } else {
             finishWorkout();
         }
@@ -366,7 +389,7 @@ export default function WorkoutView({ workoutPlan, onExit }) {
                     // Start Button (or Next Button if finished)
                     <button
                         className="btn"
-                        onClick={timerFinished ? advanceStep : handleStart}
+                        onClick={timerFinished ? () => advanceStep(true) : handleStart}
                         style={{
                             height: '80px', fontSize: '1.8rem',
                             background: timerFinished ? (isRest ? 'var(--accent)' : '#fff') : themeColor,
