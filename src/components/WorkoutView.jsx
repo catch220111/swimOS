@@ -590,4 +590,4 @@ export default function WorkoutView({ workoutPlan, onExit }) {
         </div>
     );
 }
-```
+
