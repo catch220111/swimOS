@@ -8,8 +8,21 @@ import useVoiceCommands from '../utils/useVoiceCommands';
 
 export default function WorkoutView({ workoutPlan, onExit }) {
     const [currentIndex, setCurrentIndex] = useState(0);
+    const currentIndexRef = useRef(0);
     const [currentDist, setCurrentDist] = useState(0);
     const [restPhase, setRestPhase] = useState('swim'); // 'swim' or 'rest' for Two-Phase Rest Mode
+    const restPhaseRef = useRef('swim');
+
+    const setSyncCurrentIndex = (idx) => {
+        setCurrentIndex(idx);
+        currentIndexRef.current = idx;
+    };
+
+    const setSyncRestPhase = (phase) => {
+        setRestPhase(phase);
+        restPhaseRef.current = phase;
+    };
+
     const [currentTimeLeft, setCurrentTimeLeft] = useState(0); // For display updates (countdown)
     const [currentElapsedTime, setCurrentElapsedTime] = useState(0); // For display updates (countup)
 
@@ -133,7 +146,7 @@ export default function WorkoutView({ workoutPlan, onExit }) {
         if (!workoutPlan || index < 0 || index >= workoutPlan.plan.length) return;
         const step = workoutPlan.plan[index];
 
-        setCurrentIndex(index);
+        setSyncCurrentIndex(index);
 
         // Recalculate distance
         let d = 0;
@@ -154,14 +167,14 @@ export default function WorkoutView({ workoutPlan, onExit }) {
 
         // Two-Phase Logic:
         if (step.mode === 'rest') {
-            setRestPhase('swim');
+            setSyncRestPhase('swim');
             setCurrentTimeLeft(0);
         } else {
-            setRestPhase(null);
+            setSyncRestPhase(null);
             setCurrentTimeLeft(step.time); // Initialize display
         }
 
-        if (autoStart && step.time > 0) {
+        if (autoStart) {
             handleStart();
         }
     };
@@ -169,10 +182,10 @@ export default function WorkoutView({ workoutPlan, onExit }) {
     const handleStart = () => {
         initAudio(); // Initialize audio context
 
-        const step = workoutPlan.plan[currentIndex];
+        const step = workoutPlan.plan[currentIndexRef.current];
         // CHECK IF MANUAL PUSH-OFF TRIGGER NEEDED
         // Criteria: Time == 0 (Manual) OR (RestMode but in Swim Phase)
-        const isManualSwim = (step.time === 0) || (step.mode === 'rest' && restPhase === 'swim');
+        const isManualSwim = (step.time === 0) || (step.mode === 'rest' && restPhaseRef.current === 'swim');
 
         if (isManualSwim) {
             startCountdown();
@@ -217,15 +230,16 @@ export default function WorkoutView({ workoutPlan, onExit }) {
 
     const startRestPhase = () => {
         if (rafRef.current) cancelAnimationFrame(rafRef.current);
-        const step = workoutPlan.plan[currentIndex];
+        const activeIndex = currentIndexRef.current;
+        const step = workoutPlan.plan[activeIndex];
 
         // CAPTURE SPLIT
         setCompletedSplits(prev => ({
             ...prev,
-            [currentIndex]: currentElapsedTime
+            [activeIndex]: currentElapsedTime
         }));
 
-        setRestPhase('rest');
+        setSyncRestPhase('rest');
         setCurrentTimeLeft(step.time); // Reset display to full rest time
         setTimerActive(true);
 
@@ -241,8 +255,10 @@ export default function WorkoutView({ workoutPlan, onExit }) {
         setTimerActive(true);
         setIsPaused(false);
 
-        const currentStep = workoutPlan.plan[currentIndex];
-        const isCountUp = (currentStep.time === 0) || (currentStep.mode === 'rest' && restPhase === 'swim');
+        const activeIndex = currentIndexRef.current;
+        const activePhase = restPhaseRef.current;
+        const currentStep = workoutPlan.plan[activeIndex];
+        const isCountUp = (currentStep.time === 0) || (currentStep.mode === 'rest' && activePhase === 'swim');
         const duration = currentStep.time;
 
         if (isCountUp) {
@@ -296,12 +312,14 @@ export default function WorkoutView({ workoutPlan, onExit }) {
     }, [currentTimeLeft, timerActive, voiceEnabled, isCountUpMode]);
 
     const advanceStep = (forceAutoStart = null) => {
-        if (currentIndex < workoutPlan.plan.length - 1) {
-            const nextStep = workoutPlan.plan[currentIndex + 1];
+        const activeIndex = currentIndexRef.current;
+        if (activeIndex < workoutPlan.plan.length - 1) {
+            const nextStep = workoutPlan.plan[activeIndex + 1];
             let shouldAutoStart = forceAutoStart;
-            if (shouldAutoStart === null) shouldAutoStart = nextStep.mode !== 'rest';
-            if (nextStep.mode === 'rest') shouldAutoStart = false; // Rest always manual start (Phase 1)
-            setupStep(currentIndex + 1, shouldAutoStart);
+            if (shouldAutoStart === null) {
+                shouldAutoStart = nextStep.mode !== 'rest';
+            }
+            setupStep(activeIndex + 1, shouldAutoStart);
         } else {
             finishWorkout();
         }
@@ -309,8 +327,9 @@ export default function WorkoutView({ workoutPlan, onExit }) {
     advanceStepRef.current = advanceStep;
 
     const prevStep = () => {
-        if (currentIndex > 0) {
-            setupStep(currentIndex - 1, false);
+        const activeIndex = currentIndexRef.current;
+        if (activeIndex > 0) {
+            setupStep(activeIndex - 1, false);
         }
     };
     prevStepRef.current = prevStep;
@@ -344,8 +363,10 @@ export default function WorkoutView({ workoutPlan, onExit }) {
     const togglePause = () => {
         if (!timerActive) return;
         if (isPaused) {
-            const currentStep = workoutPlan.plan[currentIndex];
-            const isCountUp = (currentStep.time === 0) || (currentStep.mode === 'rest' && restPhase === 'swim');
+            const activeIndex = currentIndexRef.current;
+            const activePhase = restPhaseRef.current;
+            const currentStep = workoutPlan.plan[activeIndex];
+            const isCountUp = (currentStep.time === 0) || (currentStep.mode === 'rest' && activePhase === 'swim');
 
             if (isCountUp) {
                 stepStartTimeRef.current = Date.now() - (currentElapsedTime * 1000);
