@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Play, Pause, SkipForward, X, Square, Volume2, VolumeX, Mic, MicOff, RotateCcw, ChevronDown } from 'lucide-react';
+import { Play, Pause, SkipForward, X, Square, Volume2, VolumeX, Mic, MicOff, RotateCcw, ChevronDown, Camera } from 'lucide-react';
 import { formatTime } from '../utils/formatters';
 import { initAudio, beep, speakText } from '../utils/audio';
 import { saveLog } from '../utils/storage';
 import { analyzeWorkout } from '../utils/analytics';
 import useVoiceCommands from '../utils/useVoiceCommands';
+import SwimCamera from './SwimCamera';
 
 export default function WorkoutView({ workoutPlan, onExit }) {
     const [currentIndex, setCurrentIndex] = useState(0);
@@ -38,6 +39,7 @@ export default function WorkoutView({ workoutPlan, onExit }) {
     const [voiceEnabled, setVoiceEnabled] = useState(true); // Default ON
     const [showSetList, setShowSetList] = useState(false);
     const [completedSplits, setCompletedSplits] = useState({});
+    const [showVision, setShowVision] = useState(false);
 
     // Refs
     const rafRef = useRef(null);
@@ -584,6 +586,9 @@ export default function WorkoutView({ workoutPlan, onExit }) {
                         <button className="btn" onClick={() => setVoiceEnabled(!voiceEnabled)} style={{ width: 'auto', padding: '5px 10px', background: 'transparent', border: '1px solid #444' }}>
                             {voiceEnabled ? <Volume2 size={16} color="#fff" /> : <VolumeX size={16} color="#666" />}
                         </button>
+                        <button className="btn" onClick={() => setShowVision(v => !v)} style={{ width: 'auto', padding: '5px 10px', background: showVision ? 'rgba(99,179,237,0.2)' : 'transparent', border: showVision ? '1px solid #63b3ed' : '1px solid #444' }}>
+                            <Camera size={16} color={showVision ? '#63b3ed' : '#666'} />
+                        </button>
                         <button className="btn btn-danger" style={{ width: 'auto', padding: '5px 12px', fontSize: '0.8rem' }} onClick={onExit}>EXIT</button>
                     </div>
                 </div>
@@ -600,6 +605,24 @@ export default function WorkoutView({ workoutPlan, onExit }) {
                         <RotateCcw size={14} />
                     </button>
                 </div>
+
+                {/* Swim Vision Panel */}
+                {showVision && (
+                    <div style={{ padding: '0 10px 8px' }}>
+                        <SwimCamera
+                            onLapFinish={(e) => {
+                                // TODO: wire to auto-advance when ready
+                                console.log('lap_finish', e);
+                            }}
+                            onLapStart={(e) => {
+                                console.log('lap_start', e);
+                            }}
+                            onStrokeUpdate={(e) => {
+                                console.log('stroke_update', e);
+                            }}
+                        />
+                    </div>
+                )}
 
                 {/* Main Card */}
                 <div style={{
